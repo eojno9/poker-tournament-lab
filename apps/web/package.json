@@ -1,0 +1,22 @@
+{
+  "name": "@poker-tournament-lab/web",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --configLoader runner --host 127.0.0.1 --port 5173",
+    "build": "tsc -p tsconfig.json && vite build --configLoader runner",
+    "test": "tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "preview": "vite preview --configLoader runner --host 127.0.0.1 --port 5173"
+  },
+  "dependencies": {
+    "@poker-tournament-lab/core": "0.1.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}
