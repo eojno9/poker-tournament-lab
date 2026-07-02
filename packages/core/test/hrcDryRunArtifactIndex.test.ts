@@ -242,8 +242,8 @@ describe("hrc dry-run artifact index helper", () => {
   it("does not leak raw privacy or local path strings into index JSON", () => {
     const dangerousReport: HrcDryRunArtifactReport = {
       ...artifact("safe.zip", "2026-06-12T20:35:01.000Z"),
-      zipFileNameSanitized: "C:\\Users\\sample-user\\hero@example.com.zip",
-      selectedNodeEntry: "C:\\Users\\sample-user\\Documents\\nodes\\0.json",
+      zipFileNameSanitized: "<sample-user-home>\\hero@example.com.zip",
+      selectedNodeEntry: "<sample-user-home>\\Documents\\nodes\\0.json",
       mismatchSummary: {
         hasMismatch: true,
         mismatchCount: 1,
@@ -251,7 +251,7 @@ describe("hrc dry-run artifact index helper", () => {
         sample: [],
         fatal: false,
       },
-      warnings: ["C:\\Users\\sample-user\\Desktop\\raw.zip"],
+      warnings: ["<sample-user-home>\\Desktop\\raw.zip"],
       errors: ["contact hero@example.com"],
     };
     const indexJson = JSON.stringify(
@@ -281,7 +281,7 @@ describe("hrc dry-run artifact index helper", () => {
   it("builds safe index file names without writing repo artifacts", () => {
     const fileName = buildHrcDryRunArtifactIndexFileName({
       generatedAt: "2026-06-12T20:35:00.000Z",
-      fileName: "..\\C:\\Users\\sample-user\\hero@example.com.json",
+      fileName: "..\\<sample-user-home>\\hero@example.com.json",
     });
 
     expect(fileName.endsWith(".json")).toBe(true);

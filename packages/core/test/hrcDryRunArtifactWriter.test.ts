@@ -167,7 +167,7 @@ describe("hrc dry-run artifact writer helper", () => {
     const koreanName = "\uD55C\uAE00 sample@! raw.zip";
     const artifact = buildHrcDryRunArtifactReport(baseDryRunReport(), {
       generatedAt,
-      zipPath: `C:\\Users\\sample-user\\Desktop\\${koreanName}`,
+      zipPath: `<sample-user-home>\\Desktop\\${koreanName}`,
     });
     const fileName = buildHrcDryRunArtifactFileName(artifact);
 
@@ -189,7 +189,7 @@ describe("hrc dry-run artifact writer helper", () => {
       generatedAt,
     });
     const result = writeHrcDryRunArtifactReport(artifact, outputDir, {
-      fileName: "..\\..\\C:\\Users\\sample-user\\evil.json",
+      fileName: "..\\..\\<sample-user-home>\\evil.json",
     });
     const relativeOutput = relative(outputDir, result.outputPath);
 
@@ -216,7 +216,7 @@ describe("hrc dry-run artifact writer helper", () => {
     const artifact = buildHrcDryRunArtifactReport(baseDryRunReport(), {
       generatedAt,
       zipPath:
-        "C:\\Users\\sample-user\\Documents\\raw\\hero@example.com.zip",
+        "<sample-user-home>\\Documents\\raw\\hero@example.com.zip",
     });
     const result = writeHrcDryRunArtifactReport(artifact, outputDir);
     const json = readFileSync(result.outputPath, "utf8");

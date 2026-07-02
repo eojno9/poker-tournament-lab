@@ -135,7 +135,7 @@ describe("hrc dry-run artifact report helper", () => {
     const artifact = buildHrcDryRunArtifactReport(baseDryRunReport(), {
       generatedAt,
       zipPath:
-        "C:\\Users\\sample-user\\Documents\\GTO 자료\\mtt raw sample.zip",
+        "<sample-user-home>\\Documents\\GTO 자료\\mtt raw sample.zip",
     });
     const serialized = JSON.stringify(artifact);
 
@@ -147,7 +147,7 @@ describe("hrc dry-run artifact report helper", () => {
 
   it("sanitizes file names with spaces, Korean text, separators, and special characters", () => {
     const sanitized = sanitizeArtifactFileName(
-      "C:\\Users\\sample-user\\Desktop\\한글 sample@! raw.zip",
+      "<sample-user-home>\\Desktop\\한글 sample@! raw.zip",
     );
 
     expect(sanitized).toMatch(/^[A-Za-z0-9._-]+$/);
@@ -156,7 +156,7 @@ describe("hrc dry-run artifact report helper", () => {
     expect(sanitized).not.toContain(" ");
     expect(sanitized).not.toContain("sample-user");
     expect(sanitized).not.toContain("Desktop");
-    expect(maskArtifactPath("C:\\Users\\sample-user\\Desktop\\x.zip")).toBe(
+    expect(maskArtifactPath("<sample-user-home>\\Desktop\\x.zip")).toBe(
       "<repo-external>/x.zip",
     );
   });
@@ -167,14 +167,14 @@ describe("hrc dry-run artifact report helper", () => {
         privacySafe: false,
         privacyWarnings: [
           "email found: hero@example.com",
-          "windows-user-path found: C:\\Users\\sample-user\\Documents\\raw.zip",
+          "windows-user-path found: <sample-user-home>\\Documents\\raw.zip",
           "account-user-token found: sample-user",
         ],
-        warnings: ["source path C:\\Users\\sample-user\\Desktop\\raw.zip"],
+        warnings: ["source path <sample-user-home>\\Desktop\\raw.zip"],
         errors: ["contact hero@example.com"],
         validatorResult: {
           ...baseDryRunReport().validatorResult,
-          issueMessages: ["bad field from C:\\Users\\sample-user\\AppData"],
+          issueMessages: ["bad field from <sample-user-home>\\AppData"],
           warningMessages: ["email hero@example.com"],
         },
       }),

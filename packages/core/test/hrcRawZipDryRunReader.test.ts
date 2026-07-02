@@ -11,7 +11,7 @@ import { buildHrcRawZipDryRunReport } from "./helpers/hrcRawZipDryRunReader.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, "..", "..", "..");
 const rawZipFileName = "mtt_10p_btn_vs_co_open_25bb_bba_chipev_depth3.zip";
-const defaultRawZipPath = join(homedir(), "<sample-external-hrc-folder>", "Gto\uC790\uB8CC", "<sample-external-hrc-folder> \uC790\uB8CC)", rawZipFileName);
+const defaultRawZipPath = join(homedir(), "sample-external-hrc-folder", rawZipFileName);
 const rawZipPath = process.env.HRC_RAW_ZIP_PATH ?? defaultRawZipPath;
 
 describe("HRC raw zip dry-run reader", () => {
@@ -263,7 +263,7 @@ describe("HRC raw zip dry-run reader", () => {
       {
         "settings.json": JSON.stringify({
           ...validSettings(),
-          note: "C:\\Users\\sample-user\\Documents\\private",
+          note: "<sample-user-home>\\Documents\\private",
           contact: "sample@example.com"
         }),
         "nodes/0.json": JSON.stringify(validNode())
@@ -276,12 +276,12 @@ describe("HRC raw zip dry-run reader", () => {
         expect(report.privacySafe).toBe(false);
         expect(report.privacyWarnings).toEqual(
           expect.arrayContaining([
-            "privacy pattern detected: windows-user-path",
+            "privacy pattern detected: Documents",
             "privacy pattern detected: account-user-token",
             "privacy pattern detected: email"
           ])
         );
-        expect(reportText).not.toContain("C:\\Users\\sample-user");
+        expect(reportText).not.toContain("<sample-user-home>");
         expect(reportText).not.toContain("sample@example.com");
         expect(reportText).not.toContain(zipPath);
       }

@@ -130,7 +130,7 @@ test("filters HRC artifact items without changing deterministic order", () => {
 
 test("sanitizes raw paths, user token, field names, and emails for dashboard display", () => {
   const sanitized = sanitizeHrcArtifactDisplayText({
-    path: "C:\\Users\\sample-user\\Documents\\raw\\sample.zip",
+    path: "<sample-user-home>\\Documents\\raw\\sample.zip",
     email: "player@example.com",
     key: "playerName"
   });
@@ -159,7 +159,7 @@ test("keeps dashboard actions read-only and documents only GET endpoints", () =>
 test("formats unknown booleans and redacted JSON previews", () => {
   assert.equal(formatHrcArtifactBoolean(null), "unknown");
   const preview = formatHrcArtifactJsonPreview({
-    detail: "C:\\Users\\sample-user\\Desktop\\node.json",
+    detail: "<sample-user-home>\\Desktop\\node.json",
     contact: "raw@example.com"
   });
 

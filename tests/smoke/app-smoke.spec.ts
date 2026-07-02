@@ -477,7 +477,7 @@ const hrcArtifactDetailResponse = {
       candidateBuilt: true,
       handCount: 169,
       actionCount: 3,
-      hiddenRawPath: "C:\\Users\\sample-user\\Documents\\raw\\smoke.zip"
+      hiddenRawPath: "<sample-user-home>\\Documents\\raw\\smoke.zip"
     },
     validatorResult: {
       pass: true,
@@ -490,7 +490,7 @@ const hrcArtifactDetailResponse = {
       categories: [],
       sample: []
     },
-    privacyWarnings: ["privacy pattern detected: C:\\Users\\sample-user\\Desktop\\raw.zip", "userName smoke@example.com"],
+    privacyWarnings: ["privacy pattern detected: <sample-user-home>\\Desktop\\raw.zip", "userName smoke@example.com"],
     indexSummary: null,
     comparisonSummary: null,
     safety: {

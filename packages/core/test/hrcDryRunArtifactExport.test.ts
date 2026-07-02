@@ -255,7 +255,7 @@ describe("opt-in HRC dry-run artifact export command", () => {
   it("keeps raw paths, user tokens, and emails out of artifact JSON", () => {
     const tempRepo = createTempRepo();
     const sensitiveZipPath =
-      "C:\\Users\\sample-user\\Documents\\raw\\hero@example.com.zip";
+      "<sample-user-home>\\Documents\\raw\\hero@example.com.zip";
     const result = runExport({
       repoRoot: tempRepo,
       zipPath: sensitiveZipPath,

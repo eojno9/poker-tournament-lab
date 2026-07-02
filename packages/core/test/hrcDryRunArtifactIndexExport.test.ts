@@ -388,7 +388,7 @@ describe("opt-in HRC dry-run artifact index export command", () => {
     const rawPathRepo = createTempRepo();
     writeReport(rawPathRepo, "raw-path.json", {
       ...artifact("safe.zip", "2026-06-16T17:00:00.000Z"),
-      zipFileNameSanitized: "C:\\Users\\sample-user\\hero@example.com.zip",
+      zipFileNameSanitized: "<sample-user-home>\\hero@example.com.zip",
     });
     expect(runIndex({ repoRoot: rawPathRepo, allow: true }).status).toBe(
       "REPORT_UNSAFE",
