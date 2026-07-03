@@ -69,7 +69,7 @@ docs/             Plans, release notes, verification, and readiness documents
 
 Prerequisites:
 
-- Node.js 20 or newer
+- Node.js 24 or newer
 - npm
 
 Install dependencies:
