@@ -37,8 +37,6 @@ const fallbackResponse = {
   evSummary: {
     unit: "prize",
     shoveEv: 0.91,
-    foldEv: 0.33,
-    deltaEv: 0.58,
     bestAction: "SHOVE",
     notes: ["smoke-test-fallback"]
   },
@@ -430,16 +428,39 @@ test.describe("v1.2 smoke", () => {
     await expect(page.locator(".source-badge")).toContainText("HRC_PRECOMPUTED_DB");
     await expect(page.getByTestId("recent-analyses-list")).toBeVisible();
     await expect(page.getByTestId("recent-analyses-list")).toContainText("HRC_PRECOMPUTED_DB");
+    await expect(page.getByTestId("ev-comparison-block")).toHaveCount(0);
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("FALLBACK_ICM");
-    await expect(page.getByRole("heading", { name: "Assumptions" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Limitations" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Assumptions$/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Limitations" }).first()).toBeVisible();
     await expect(page.getByText(/ICM EV evaluation, not a Nash solution/i).first()).toBeVisible();
+    const fallbackExplanation = page.getByTestId("fallback-explanation-block");
+    await expect(fallbackExplanation).toBeVisible();
+    await expect(fallbackExplanation).toContainText("fallback 결과");
+    await expect(fallbackExplanation).toContainText("Nash solution이 아닙니다");
+    await expect(fallbackExplanation).toContainText("제공되지 않음");
+    const evComparison = page.getByTestId("ev-comparison-block");
+    await expect(evComparison).toBeVisible();
+    await expect(evComparison).toContainText("ChipEV vs ICM EV");
+    await expect(evComparison).toContainText("제공되지 않음");
+    await expect(evComparison).toContainText("새 계산이 아니라 기존 payload 표시입니다.");
+    const rangePresetComparison = page.getByTestId("range-preset-comparison-block");
+    await expect(rangePresetComparison).toBeVisible();
+    await expect(rangePresetComparison).toContainText("Range preset comparison");
+    await expect(rangePresetComparison).toContainText("입력/가정 비교");
+    await expect(rangePresetComparison).toContainText("presetName");
+    await expect(rangePresetComparison).toContainText("callRangePct");
+    const sensitivity = page.getByTestId("sensitivity-summary-block");
+    await expect(sensitivity).toBeVisible();
+    await expect(sensitivity).toContainText("Villain Range Sensitivity");
+    await expect(sensitivity).toContainText("Nash");
+    await expect(sensitivity).toContainText("제공되지 않음");
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("NOT_SOLVED");
     await expect(page.locator(".not-solved-box")).toContainText("NOT_SOLVED");
+    await expect(page.getByTestId("ev-comparison-block")).toHaveCount(0);
     await expect(
       page.getByText("fallback requires one payout value per remaining player, including 0 for unpaid places").first()
     ).toBeVisible();

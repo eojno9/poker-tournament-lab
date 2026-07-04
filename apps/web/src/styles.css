@@ -597,6 +597,14 @@ textarea.compact-textarea {
   font-size: 12px;
 }
 
+.range-row.sensitivity-row {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.range-row.ev-compare-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .range-row span {
   overflow: hidden;
   text-overflow: ellipsis;

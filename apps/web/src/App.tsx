@@ -30,7 +30,9 @@ import {
   type StrategyMatrix,
   type TrainerChoiceAction,
   type TrainerGradeResult,
-  type TrainerProblem
+  type TrainerProblem,
+  type VillainRangeSensitivityLabel,
+  type VillainRangeSensitivityRank
 } from "@poker-tournament-lab/core";
 import {
   analyzeSpot,
@@ -98,6 +100,9 @@ import {
   type TrainerProblemFilters
 } from "./trainerOptions.js";
 import { buildTrainerSummary } from "./trainerSummary.js";
+import { buildSensitivitySummaryFromAnalyzeResult } from "./sensitivityAdapter.js";
+import { buildEvComparisonFromAnalyzeResult } from "./evComparisonAdapter.js";
+import { buildRangePresetComparisonFromAnalyzeResult } from "./rangePresetComparisonAdapter.js";
 
 type Tab = "analyze" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
@@ -1339,9 +1344,12 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
   const strategyCount = Object.keys(result.strategy ?? {}).length;
   const sourceFileName = readUnknownValue(metadata?.fileName);
   const sourceFileHash = readUnknownValue(metadata?.fileHash);
-  const fallbackRanges = result.fallbackMetadata?.villainRanges ?? [];
+  const rangePresetComparison = buildRangePresetComparisonFromAnalyzeResult(result);
+  const fallbackRanges = rangePresetComparison?.rows ?? [];
   const fallbackLimitations = result.fallbackMetadata?.limitations ?? [];
   const missingRequirements = result.missingRequirements ?? [];
+  const sensitivitySummary = buildSensitivitySummaryFromAnalyzeResult(result);
+  const evComparison = buildEvComparisonFromAnalyzeResult(result);
 
   return (
     <div className="panel result-panel">
@@ -1395,37 +1403,122 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
           <p className="muted">
             이 결과는 Nash 솔버 결과가 아니라, 입력된 상대 콜링 레인지 가정에 따른 ICM EV 평가입니다.
           </p>
+          <div className="notice" data-testid="fallback-explanation-block">
+            <p>이 결과는 HRC_PRECOMPUTED_DB exact match가 아닌 fallback 결과입니다.</p>
+            <p>villain calling range 가정 기반 ICM EV 평가이며 Nash solution이 아닙니다.</p>
+            <p>EV 값이 없으면 제공되지 않음으로 표시됩니다.</p>
+          </div>
           <div className="detail-grid">
             <ResultDetailItem label="modelVersion" value={result.fallbackMetadata?.modelVersion ?? "제공되지 않음"} />
             <ResultDetailItem label="villain range rows" value={String(fallbackRanges.length)} />
+            <ResultDetailItem label="exact HRC match" value="NO" />
           </div>
-          {fallbackRanges.length > 0 ? (
-            <div className="range-table" role="table" aria-label="fallback villain ranges">
-              <div className="range-row range-head" role="row">
-                <span>position</span>
-                <span>presetName</span>
-                <span>editedByUser</span>
-                <span>callRangePct</span>
-                <span>rangeSource</span>
-              </div>
-              {fallbackRanges.map((range) => (
-                <div className="range-row" role="row" key={`${range.seat}-${range.position}`}>
-                  <span>{range.position}</span>
-                  <span>{range.presetName}</span>
-                  <span>{range.editedByUser ? "true" : "false"}</span>
-                  <span>{range.callRangePct.toFixed(1)}%</span>
-                  <span>{range.rangeSource}</span>
+          {evComparison && (
+            <div className="result-block" data-testid="ev-comparison-block">
+              <h3>ChipEV vs ICM EV (read-only)</h3>
+              <p className="muted">새 계산이 아니라 기존 payload 표시입니다.</p>
+              <div className="range-table" role="table" aria-label="chipev vs icm comparison table">
+                <div className="range-row range-head ev-compare-row" role="row">
+                  <span>metric</span>
+                  <span>ChipEV</span>
+                  <span>ICM EV</span>
                 </div>
-              ))}
+                {evComparison.rows.map((row) => (
+                  <div className="range-row ev-compare-row" role="row" key={row.metric}>
+                    <span>{row.metric}</span>
+                    <span>{formatNotProvidedLabel(row.chipEvLabel)}</span>
+                    <span>{formatNotProvidedLabel(row.icmEvLabel)}</span>
+                  </div>
+                ))}
+              </div>
+              <InfoList title="Notes" items={evComparison.notes} />
             </div>
-          ) : (
-            <p className="muted">villainRanges 정보가 제공되지 않음</p>
+          )}
+          {rangePresetComparison && (
+            <div className="result-block" data-testid="range-preset-comparison-block">
+              <h3>Range preset comparison (read-only)</h3>
+              <p className="muted">{rangePresetComparison.notes[0] ?? "range preset 비교 정보입니다."}</p>
+              <div className="detail-grid">
+                <ResultDetailItem label="rows" value={String(rangePresetComparison.rowCount)} />
+                <ResultDetailItem label="source" value={rangePresetComparison.source} />
+              </div>
+              {fallbackRanges.length > 0 ? (
+                <div className="range-table" role="table" aria-label="fallback villain ranges">
+                  <div className="range-row range-head" role="row">
+                    <span>position</span>
+                    <span>presetName</span>
+                    <span>editedByUser</span>
+                    <span>callRangePct</span>
+                    <span>rangeSource</span>
+                  </div>
+                  {fallbackRanges.map((range) => (
+                    <div className="range-row" role="row" key={`${range.seat}-${range.position}`}>
+                      <span>{range.position}</span>
+                      <span>{range.presetName}</span>
+                      <span>{range.editedByUser ? "true" : "false"}</span>
+                      <span>{range.callRangePct.toFixed(1)}%</span>
+                      <span>{range.rangeSource}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">villainRanges 정보가 제공되지 않음</p>
+              )}
+            </div>
           )}
           {fallbackLimitations.length > 0 && (
             <div className="notice">
               {fallbackLimitations.map((item) => (
                 <p key={item}>{item}</p>
               ))}
+            </div>
+          )}
+          <div className="info-grid">
+            <InfoList title="Fallback assumptions" items={result.assumptions} />
+            <InfoList title="Fallback limitations" items={result.limitations} />
+          </div>
+
+          {sensitivitySummary && (
+            <div className="result-block sensitivity-block" data-testid="sensitivity-summary-block">
+              <h3>상대 콜링 레인지 민감도 (Villain Range Sensitivity)</h3>
+              <p className="muted">이 표는 Nash 해가 아니라 villain calling range 가정별 EV 민감도입니다.</p>
+              <div className="detail-grid">
+                <ResultDetailItem label="scenario count" value={String(sensitivitySummary.scenarioCount)} />
+                <ResultDetailItem label="best scenario" value={formatSensitivityScenario(sensitivitySummary.bestScenario)} />
+                <ResultDetailItem label="worst scenario" value={formatSensitivityScenario(sensitivitySummary.worstScenario)} />
+              </div>
+              {sensitivitySummary.rows.length > 0 ? (
+                <div className="range-table" role="table" aria-label="villain range sensitivity table" data-testid="sensitivity-summary-table">
+                  <div className="range-row range-head sensitivity-row" role="row">
+                    <span>presetName</span>
+                    <span>callRangePct</span>
+                    <span>shoveEV</span>
+                    <span>foldEV</span>
+                    <span>difference</span>
+                    <span>label</span>
+                  </div>
+                  {sensitivitySummary.rows.map((row) => (
+                    <div
+                      className="range-row sensitivity-row"
+                      role="row"
+                      key={`${row.presetName}-${row.callRangePctLabel}-${row.differenceLabel}`}
+                    >
+                      <span>{row.presetName}</span>
+                      <span>{formatSensitivityPercent(row.callRangePct)}</span>
+                      <span>{formatSensitivityMetric(row.shoveEVLabel)}</span>
+                      <span>{formatSensitivityMetric(row.foldEVLabel)}</span>
+                      <span>{formatSensitivityMetric(row.differenceLabel)}</span>
+                      <span>{formatSensitivityLabel(row.label)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">제공되지 않음</p>
+              )}
+              <div className="info-grid">
+                <InfoList title="Explanation" items={sensitivitySummary.explanation} />
+                <InfoList title="Limitations" items={sensitivitySummary.limitations} />
+              </div>
             </div>
           )}
         </div>
@@ -2515,6 +2608,42 @@ function clamp(value: number, min: number, max: number): number {
     return min;
   }
   return Math.max(min, Math.min(max, Math.trunc(value)));
+}
+
+function formatSensitivityScenario(value: VillainRangeSensitivityRank | null): string {
+  if (!value) {
+    return "제공되지 않음";
+  }
+  const pct = value.callRangePct === null ? "제공되지 않음" : `${value.callRangePct.toFixed(1)}%`;
+  return `${value.presetName} (difference ${value.difference.toFixed(4)}, call ${pct})`;
+}
+
+function formatSensitivityPercent(value: number | null): string {
+  if (value === null) {
+    return "제공되지 않음";
+  }
+  return `${value.toFixed(1)}%`;
+}
+
+function formatSensitivityMetric(value: string): string {
+  return formatNotProvidedLabel(value);
+}
+
+function formatSensitivityLabel(value: VillainRangeSensitivityLabel): string {
+  if (value === "shove_advantage") {
+    return "shove 우세";
+  }
+  if (value === "fold_advantage") {
+    return "fold 우세";
+  }
+  if (value === "neutral") {
+    return "중립";
+  }
+  return "제공되지 않음";
+}
+
+function formatNotProvidedLabel(value: string): string {
+  return value === "not_provided" ? "제공되지 않음" : value;
 }
 
 function formatOptionalNumber(value: number | undefined): string {

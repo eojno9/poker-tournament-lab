@@ -7,3 +7,4 @@ export * from "./hrcCatalog.js";
 export * from "./icm.js";
 export * from "./fallback.js";
 export * from "./trainer.js";
+export * from "./rangeSensitivity.js";
