@@ -309,6 +309,14 @@ test.describe("v1.2 smoke", () => {
   });
 
   test("renders tabs and import report cards", async ({ page }) => {
+    await page.route("**/api/solutions*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ solutions: [databaseSampleSolution] })
+      });
+    });
+
     await page.goto("/");
     const tabs = page.locator("nav.tabs");
     await expect(tabs.getByRole("button", { name: "Analyze", exact: true })).toBeVisible();
@@ -320,6 +328,17 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByLabel("preset name")).toBeVisible();
     await expect(page.getByTestId("recent-analyses-empty")).toBeVisible();
     await expect(page.getByTestId("preset-save-button")).toBeVisible();
+    await expect(page.getByTestId("analyze-action-sizing-selector")).toBeVisible();
+    await expect(page.getByTestId("analyze-action-sizing-selector")).toContainText("DB에 실제 존재하는 action/size 후보만 표시합니다.");
+    await expect(page.getByTestId("analyze-action-sizing-selector")).toContainText("자동 분석하지 않습니다.");
+    await expect(page.getByTestId("analyze-action-sizing-empty")).toBeVisible();
+
+    await page.getByLabel("hero position").selectOption("BTN");
+    await expect(page.getByTestId("analyze-action-sizing-candidate").first()).toBeVisible();
+    await expect(page.getByTestId("analyze-action-sizing-warning")).toBeVisible();
+    await page.getByTestId("analyze-action-sizing-candidate").first().click();
+    await expect(page.getByTestId("analyze-action-sizing-selected")).toBeVisible();
+    await expect(page.getByTestId("analyze-action-sizing-selected")).toContainText("선택된 action");
 
     await page.getByLabel("preset name").fill("Smoke Preset");
     await page.getByTestId("preset-save-button").click();
@@ -509,6 +528,13 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByText("Source metadata")).toBeVisible();
     await expect(page.getByText("Strategy Matrix")).toBeVisible();
     await expect(page.getByTestId("db-fill-analyze-button")).toBeVisible();
+    await expect(page.getByTestId("db-action-sizing-summary")).toBeVisible();
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("Action / Sizing Summary");
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("이 정보는 DB에 저장된 spot/action/tree metadata에서 감지한 값입니다.");
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("DB에 없는 size를 임의 생성하지 않습니다.");
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("actionPath");
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("treeConfig");
+    await expect(page.getByTestId("db-action-sizing-summary")).toContainText("sourceCount");
 
     await page.getByTestId("db-fill-analyze-button").click();
     await expect(page.getByRole("heading", { name: "Analyze Spot" })).toBeVisible();

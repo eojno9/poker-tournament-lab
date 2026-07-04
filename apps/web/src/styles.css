@@ -270,6 +270,41 @@ textarea.compact-textarea {
   gap: 6px;
 }
 
+.action-sizing-selector {
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcfe;
+}
+
+.action-sizing-list {
+  display: grid;
+  gap: 8px;
+}
+
+.action-sizing-candidate {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 1px solid #d2dce8;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: left;
+  color: #223247;
+  background: #ffffff;
+}
+
+.action-sizing-candidate:hover,
+.action-sizing-candidate:focus-visible {
+  border-color: #1b5f82;
+  outline: none;
+}
+
+.action-sizing-candidate span {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .preset-action {
   min-height: 32px;
   display: inline-flex;

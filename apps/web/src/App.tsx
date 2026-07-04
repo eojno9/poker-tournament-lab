@@ -17,9 +17,12 @@ import {
 } from "lucide-react";
 import {
   buildTrainerProblemFromSolution,
+  extractAvailableActionSizingOptions,
   gradeTrainerAnswer,
   HAND_KEYS,
   RESULT_SOURCES,
+  type ActionSizingOption,
+  type ActionSizingOptionsResult,
   type CanonicalDiffInput,
   type CanonicalKeyDiffResult,
   type AnalyzeRequest,
@@ -103,6 +106,13 @@ import { buildTrainerSummary } from "./trainerSummary.js";
 import { buildSensitivitySummaryFromAnalyzeResult } from "./sensitivityAdapter.js";
 import { buildEvComparisonFromAnalyzeResult } from "./evComparisonAdapter.js";
 import { buildRangePresetComparisonFromAnalyzeResult } from "./rangePresetComparisonAdapter.js";
+import {
+  applyActionSizingCandidateToForm,
+  buildAnalyzeActionSizingFilter,
+  buildAnalyzeActionSizingSolutions,
+  formatActionSizingOption
+} from "./analyzeActionSizingSelector.js";
+import { buildDatabaseActionSizingSummary } from "./databaseActionSizingSummary.js";
 
 type Tab = "analyze" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
@@ -231,9 +241,42 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
   const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysisEntry[]>(() => loadRecentAnalyses());
   const [recentNotice, setRecentNotice] = useState<PresetNotice | null>(null);
   const [formNotice, setFormNotice] = useState<PresetNotice | null>(null);
+  const [actionSizingRows, setActionSizingRows] = useState<SolutionListItem[]>([]);
+  const [actionSizingLoading, setActionSizingLoading] = useState(false);
+  const [actionSizingError, setActionSizingError] = useState<string | null>(null);
+  const [selectedActionSizing, setSelectedActionSizing] = useState<ActionSizingOption | null>(null);
 
   const formBuildResult = useMemo(() => buildAnalyzeRequestFromForm(formState), [formState]);
   const heroPositionOptions = positionsForTableSize(formState.tableSize);
+  const actionSizingOptions = useMemo(() => {
+    const solutionInputs = buildAnalyzeActionSizingSolutions(actionSizingRows);
+    return extractAvailableActionSizingOptions(solutionInputs, buildAnalyzeActionSizingFilter(formState));
+  }, [actionSizingRows, formState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setActionSizingLoading(true);
+    setActionSizingError(null);
+    listSolutions("", 500)
+      .then((rows) => {
+        if (!cancelled) {
+          setActionSizingRows(rows);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setActionSizingError(caught instanceof Error ? caught.message : "DB action/sizing 후보를 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setActionSizingLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!prefill) {
@@ -261,6 +304,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
       });
     }
     onConsumePrefill();
+    setSelectedActionSizing(null);
   }, [prefill, onConsumePrefill]);
 
   function setTableSize(nextTableSize: number) {
@@ -335,6 +379,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     setPresetNotice(null);
     setRecentNotice(null);
     setFormNotice(null);
+    setSelectedActionSizing(null);
   }
 
   function onSavePreset() {
@@ -381,6 +426,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
       setMode("form");
       setPresetNotice({ tone: "success", text: `프리셋 "${preset.name}"을 불러왔습니다.` });
       setFormNotice(null);
+      setSelectedActionSizing(null);
     } catch {
       setPresetNotice({ tone: "error", text: "프리셋 불러오기에 실패했습니다." });
     }
@@ -398,6 +444,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     setMode("form");
     setRecentNotice({ tone: "success", text: "최근 분석 입력값을 불러왔습니다. Analyze 실행은 직접 눌러주세요." });
     setFormNotice(null);
+    setSelectedActionSizing(null);
   }
 
   function onDeleteRecent(id: string) {
@@ -410,6 +457,25 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     clearRecentAnalyses();
     setRecentAnalyses([]);
     setRecentNotice({ tone: "success", text: "최근 분석 기록을 모두 삭제했습니다." });
+  }
+
+  function onSelectActionSizing(option: ActionSizingOption) {
+    const applied = applyActionSizingCandidateToForm(formState, option);
+    setFormState(applied.formState);
+    const buildResult = buildAnalyzeRequestFromForm(applied.formState);
+    if (buildResult.request) {
+      setJsonRequest(JSON.stringify(buildResult.request, null, 2));
+    }
+    setSelectedActionSizing(option);
+    setFormErrors([]);
+    setError(null);
+    setResult(null);
+    setFormNotice({
+      tone: "success",
+      text: applied.appliedActionPathText
+        ? "DB action/sizing 후보로 action path를 채웠습니다. Analyze 실행은 직접 눌러주세요."
+        : "DB action/sizing 후보를 선택했습니다. Analyze 실행은 직접 눌러주세요."
+    });
   }
 
   async function runAnalyze() {
@@ -591,6 +657,14 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 </div>
               )}
             </div>
+
+            <AnalyzeActionSizingSelector
+              options={actionSizingOptions}
+              loading={actionSizingLoading}
+              error={actionSizingError}
+              selected={selectedActionSizing}
+              onSelect={onSelectActionSizing}
+            />
 
             <div className="form-grid">
               <label>
@@ -787,6 +861,95 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
       </div>
       <ResultPanel result={result} loading={loading} />
     </section>
+  );
+}
+
+function AnalyzeActionSizingSelector({
+  options,
+  loading,
+  error,
+  selected,
+  onSelect
+}: {
+  options: ActionSizingOptionsResult;
+  loading: boolean;
+  error: string | null;
+  selected: ActionSizingOption | null;
+  onSelect: (option: ActionSizingOption) => void;
+}) {
+  const hasUnspecified = options.actions.some((item) => item.sizeKind === "UNSPECIFIED" || item.action === "UNKNOWN");
+
+  return (
+    <div className="editor-block action-sizing-selector" data-testid="analyze-action-sizing-selector">
+      <div className="panel-title">
+        <Database size={16} />
+        <h3>DB 기준 액션/사이즈 후보</h3>
+      </div>
+      <div className="notice">
+        <p>DB에 실제 존재하는 action/size 후보만 표시합니다.</p>
+        <p>DB에 없는 size는 HRC_PRECOMPUTED_DB exact match로 처리되지 않습니다.</p>
+        <p>후보 선택은 폼 채우기만 수행하며 자동 분석하지 않습니다.</p>
+        <p>fallback 조건이 완전하면 FALLBACK_ICM으로만 평가될 수 있습니다.</p>
+      </div>
+
+      <div className="detail-grid">
+        <ResultDetailItem label="candidate count" value={String(options.candidateCount)} />
+        <ResultDetailItem label="filtered solutions" value={`${options.filteredSolutionCount} / ${options.scannedSolutionCount}`} />
+      </div>
+
+      {loading ? <p className="muted">DB action/sizing 후보를 불러오는 중...</p> : null}
+      {error ? <p className="error-text">{error}</p> : null}
+
+      {hasUnspecified || options.warnings.length > 0 ? (
+        <div className="notice" data-testid="analyze-action-sizing-warning">
+          <p>일부 solution은 명시적 size 정보가 없어 actionPath/treeConfig 기준으로만 표시됩니다.</p>
+          {options.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {selected ? (
+        <div className="notice success" data-testid="analyze-action-sizing-selected">
+          <p>선택된 action: {selected.action}</p>
+          <p>선택된 size: {selected.sizeLabel}</p>
+          <p>
+            sourceCount {selected.sourceCount} · confidence {selected.confidence}
+          </p>
+        </div>
+      ) : null}
+
+      {!loading && options.actions.length === 0 ? (
+        <p className="muted" data-testid="analyze-action-sizing-empty">
+          현재 조건에 맞는 DB action/sizing 후보가 없습니다.
+        </p>
+      ) : (
+        <div className="action-sizing-list" data-testid="analyze-action-sizing-list">
+          {options.actions.map((option) => (
+            <button
+              className="action-sizing-candidate"
+              key={`${option.action}-${option.sizeKind}-${option.sizeLabel}-${option.sizeBb ?? "none"}`}
+              onClick={() => onSelect(option)}
+              type="button"
+              data-testid="analyze-action-sizing-candidate"
+            >
+              <strong>{formatActionSizingOption(option)}</strong>
+              <span>
+                sourceCount {option.sourceCount} · confidence {option.confidence}
+              </span>
+              <span>
+                examples:{" "}
+                {option.examples
+                  .map((example) => [example.sourceFile, example.treeConfig, example.actionPath.join(" > ")]
+                    .filter((item) => item && item.length > 0)
+                    .join(" / "))
+                  .join(" | ") || "제공되지 않음"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2512,6 +2675,8 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
 
             {selected.row.databaseFeatures && <FeatureChips features={selected.row.databaseFeatures} />}
 
+            <DatabaseActionSizingSummaryBlock row={selected.row} />
+
             <div className="result-block">
               <h3>Spot JSON 요약</h3>
               <pre className="spot-json-preview">{JSON.stringify(toSpotSummary(selected.row.spot), null, 2)}</pre>
@@ -2539,6 +2704,85 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
         )}
       </div>
     </section>
+  );
+}
+
+function DatabaseActionSizingSummaryBlock({ row }: { row: SolutionListItem }) {
+  const summary = useMemo(() => buildDatabaseActionSizingSummary(row), [row]);
+  const raiseSizeText = summary.detectedRaiseSizes.length > 0
+    ? summary.detectedRaiseSizes.map((item) => item.sizeLabel).join(", ")
+    : "제공되지 않음";
+  const allInText = summary.detectedAllInActions.length > 0
+    ? uniqueSorted(summary.detectedAllInActions.map((item) => item.action)).join(", ")
+    : "제공되지 않음";
+
+  return (
+    <div className="result-block" data-testid="db-action-sizing-summary">
+      <h3>액션/사이즈 요약 (Action / Sizing Summary)</h3>
+      <div className="notice">
+        <p>이 정보는 DB에 저장된 spot/action/tree metadata에서 감지한 값입니다.</p>
+        <p>DB에 없는 size를 임의 생성하지 않습니다.</p>
+        <p>UNKNOWN/UNSPECIFIED는 imported data에 명시적 size 정보가 부족하다는 뜻입니다.</p>
+      </div>
+
+      <div className="detail-grid">
+        <ResultDetailItem label="actionPath" value={summary.actionPathText} />
+        <ResultDetailItem label="treeConfig" value={summary.treeConfig ?? "제공되지 않음"} />
+        <ResultDetailItem label="detected actions" value={summary.detectedActions.join(", ") || "제공되지 않음"} />
+        <ResultDetailItem label="detected raise sizes" value={raiseSizeText} />
+        <ResultDetailItem label="all-in / shove" value={allInText} />
+        <ResultDetailItem label="candidate count" value={String(summary.candidates.length)} />
+      </div>
+
+      {summary.warnings.length > 0 ? (
+        <div className="notice" data-testid="db-action-sizing-warning">
+          {summary.warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
+
+      {summary.candidates.length === 0 ? (
+        <p className="muted">action/sizing 후보가 제공되지 않음</p>
+      ) : (
+        <div className="range-table" role="table" aria-label="database action sizing candidates">
+          <div className="range-row range-head action-sizing-row" role="row">
+            <span>action</span>
+            <span>sizeKind</span>
+            <span>sizeLabel</span>
+            <span>confidence</span>
+            <span>sourceCount</span>
+          </div>
+          {summary.candidates.map((candidate) => (
+            <div
+              className="range-row action-sizing-row"
+              role="row"
+              key={`${candidate.action}-${candidate.sizeKind}-${candidate.sizeLabel}-${candidate.sizeBb ?? "none"}`}
+            >
+              <span>{candidate.action}</span>
+              <span>{candidate.sizeKind}</span>
+              <span>{candidate.sizeBb !== undefined ? `${candidate.sizeLabel} (${candidate.sizeBb}bb)` : candidate.sizeLabel}</span>
+              <span>{candidate.confidence}</span>
+              <span>{candidate.sourceCount}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="meta-list">
+        <p>
+          <strong>size signals</strong>: {summary.sizeSignals.length > 0
+            ? summary.sizeSignals.map((signal) => `${signal.raw}/${signal.source}/${signal.confidence}`).join(" | ")
+            : "제공되지 않음"}
+        </p>
+        <p>
+          <strong>explicit size fields</strong>: {summary.explicitSizeFieldPaths.length > 0
+            ? summary.explicitSizeFieldPaths.join(", ")
+            : "제공되지 않음"}
+        </p>
+        <p className="muted">candidate label: {summary.candidates[0] ? formatActionSizingOption(summary.candidates[0]) : "제공되지 않음"}</p>
+      </div>
+    </div>
   );
 }
 
