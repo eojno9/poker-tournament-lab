@@ -34,6 +34,76 @@ test("converts fallback result strategy into multi-action view", () => {
   assert.equal(view.hands[0]?.actions[0]?.action, "ALL_IN");
 });
 
+test("uses stored multi-action v2 actions directly from solution strategy", () => {
+  const view = buildMultiActionFromSolution(
+    makeSolutionRow({
+      strategy: makeV2Strategy()
+    })
+  );
+
+  assert.ok(view);
+  assert.equal(view.isReadOnlyLegacyAdapter, false);
+  assert.equal(view.strategyMode, "multi-action-v2");
+  const detail = buildHandActionDetail(view, "AKs");
+  assert.equal(detail?.actions.length, 2);
+  assert.equal(detail?.actions[0]?.action, "RAISE");
+  assert.equal(detail?.actions[0]?.size?.sizeBb, 2.2);
+  assert.equal(detail?.actions[0]?.frequency, 0.55);
+  assert.equal(detail?.actions[0]?.ev, 0.18);
+  assert.equal(detail?.actions[0]?.chipEv, 0.21);
+  assert.equal(detail?.actions[0]?.icmEv, 0.18);
+  assert.equal(detail?.actions[1]?.action, "ALL_IN");
+  assert.equal(detail?.actions[1]?.size?.isAllIn, true);
+});
+
+test("uses stored multi-action v2 actions directly from analyze result", () => {
+  const result = makeAnalyzeResult({
+    source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+    strategy: makeV2Strategy() as AnalyzeResult["strategy"]
+  });
+  const view = buildMultiActionFromAnalyzeResult(result);
+
+  assert.ok(view);
+  assert.equal(view.strategyMode, "multi-action-v2");
+  assert.equal(view.hasMixedActions, true);
+  assert.ok(view.actionKinds.includes("RAISE"));
+  assert.ok(view.actionKinds.includes("ALL_IN"));
+});
+
+test("preserves v2 missing EV fields as not provided values", () => {
+  const view = buildMultiActionFromSolution(
+    makeSolutionRow({
+      strategy: makeV2Strategy({
+        AQs: {
+          hand: "AQs",
+          actions: [
+            {
+              action: "CALL",
+              size: null,
+              frequency: 1,
+              ev: null,
+              chipEv: null,
+              icmEv: null,
+              sourceActionLabel: "Call",
+              warnings: ["CALL size is not provided"]
+            }
+          ],
+          totalFrequency: 1,
+          warnings: ["CALL size is not provided"]
+        }
+      })
+    })
+  );
+
+  assert.ok(view);
+  const action = buildHandActionDetail(view, "AQs")?.actions[0];
+  assert.equal(action?.action, "CALL");
+  assert.equal(action?.ev, null);
+  assert.equal(action?.chipEv, null);
+  assert.equal(action?.icmEv, null);
+  assert.ok(action?.warnings.some((item) => item.includes("size")));
+});
+
 test("returns null for NOT_SOLVED", () => {
   const result = makeAnalyzeResult({
     source: RESULT_SOURCES.NOT_SOLVED,
@@ -173,4 +243,37 @@ function makeAnalyzeResult(overrides: Partial<AnalyzeResult>): AnalyzeResult {
     evSummary: null,
     ...overrides
   };
+}
+
+function makeV2Strategy(overrides: Record<string, unknown> = {}): SolutionListItem["strategy"] {
+  return {
+    AKs: {
+      hand: "AKs",
+      actions: [
+        {
+          action: "RAISE",
+          size: { sizeBb: 2.2, rawSizeLabel: "2.2bb" },
+          frequency: 0.55,
+          ev: 0.18,
+          chipEv: 0.21,
+          icmEv: 0.18,
+          sourceActionLabel: "Raise 2.2bb",
+          warnings: []
+        },
+        {
+          action: "ALL_IN",
+          size: { isAllIn: true },
+          frequency: 0.45,
+          ev: 0.16,
+          chipEv: 0.19,
+          icmEv: 0.16,
+          sourceActionLabel: "Jam",
+          warnings: []
+        }
+      ],
+      totalFrequency: 1,
+      warnings: []
+    },
+    ...overrides
+  } as unknown as SolutionListItem["strategy"];
 }

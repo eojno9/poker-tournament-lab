@@ -11,3 +11,4 @@ export * from "./rangeSensitivity.js";
 export * from "./actionSizingAudit.js";
 export * from "./actionSizingOptions.js";
 export * from "./multiActionStrategy.js";
+export * from "./multiActionImportV2.js";

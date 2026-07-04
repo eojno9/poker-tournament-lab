@@ -8,13 +8,17 @@ import {
   diffCanonicalInputs,
   canonicalSpotKey,
   evaluateFallbackIcm,
+  isMultiActionImportV2Record,
   classifyHrcDatabaseFile,
   parseCsv,
   parseHrcImport,
   validateSpotShape,
+  validateMultiActionImportV2Record,
   type AnalyzeRequest,
   type AnalyzeResult,
+  type EvSummary,
   type HrcImportPayload,
+  type ImportedSolutionRecord,
   type SpotInput
 } from "@poker-tournament-lab/core";
 import { LabDatabase } from "./db.js";
@@ -136,6 +140,12 @@ interface ImportValidationSummary {
   duplicateCanonicalKeyPreview: DuplicateCanonicalPreview[];
   issues: ImportValidationIssue[];
   generatedAt: string;
+  schemaVersion?: string | null;
+  multiActionStrategyCount?: number;
+  multiActionHandCount?: number;
+  actionCount?: number;
+  multiActionWarningCount?: number;
+  multiActionInvalidCount?: number;
 }
 
 export function createApp(database = new LabDatabase()) {
@@ -219,6 +229,46 @@ export function createApp(database = new LabDatabase()) {
     }
     if (typeof payload.content !== "string" || payload.content.trim().length === 0) {
       res.status(400).json({ error: "content is required" });
+      return;
+    }
+
+    const v2Rows = payload.format === "json" ? extractMultiActionImportV2Rows(payload.content) : null;
+    if (v2Rows) {
+      const v2Parsed = parseMultiActionImportV2Rows(v2Rows, payload.sourceLabel);
+      if (v2Parsed.issues.length > 0) {
+        res.status(400).json({
+          error: "multi-action v2 validation failed",
+          validation: {
+            schemaVersion: "multi-action-v2",
+            issues: v2Parsed.issues,
+            warnings: v2Parsed.warnings,
+            multiActionStrategyCount: 0,
+            multiActionHandCount: v2Parsed.multiActionHandCount,
+            multiActionActionCount: v2Parsed.multiActionActionCount
+          }
+        });
+        return;
+      }
+
+      const summary = database.storeImport({
+        format: payload.format,
+        content: payload.content,
+        records: v2Parsed.records,
+        ...(typeof payload.fileName === "string" ? { fileName: payload.fileName } : {}),
+        ...(typeof payload.sourceLabel === "string" ? { sourceLabel: payload.sourceLabel } : {})
+      });
+
+      res.status(201).json({
+        import: {
+          ...summary,
+          schemaVersion: "multi-action-v2",
+          multiActionStrategyCount: v2Parsed.records.length,
+          multiActionHandCount: v2Parsed.multiActionHandCount,
+          multiActionActionCount: v2Parsed.multiActionActionCount,
+          v2Warnings: v2Parsed.warnings
+        },
+        canonicalKeys: v2Parsed.canonicalKeys
+      });
       return;
     }
 
@@ -364,6 +414,152 @@ function parseCanonicalDiffSide(value: unknown, sideLabel: "left" | "right"): { 
   return { spot: candidateSpot as SpotInput };
 }
 
+interface ParsedMultiActionImportV2Rows {
+  records: ImportedSolutionRecord[];
+  canonicalKeys: string[];
+  issues: ImportValidationIssue[];
+  warnings: ImportValidationIssue[];
+  multiActionHandCount: number;
+  multiActionActionCount: number;
+}
+
+function extractMultiActionImportV2Rows(content: string): unknown[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return null;
+  }
+
+  if (Array.isArray(parsed)) {
+    return parsed.some((row) => isMultiActionImportV2Record(row)) ? parsed : null;
+  }
+
+  if (parsed && typeof parsed === "object") {
+    const record = parsed as Record<string, unknown>;
+    if (isMultiActionImportV2Record(record)) {
+      return [record];
+    }
+    if (Array.isArray(record.records) && record.records.some((row) => isMultiActionImportV2Record(row))) {
+      return record.records;
+    }
+    if (Array.isArray(record.solutions) && record.solutions.some((row) => isMultiActionImportV2Record(row))) {
+      return record.solutions;
+    }
+  }
+
+  return null;
+}
+
+function parseMultiActionImportV2Rows(rows: unknown[], payloadSourceLabel: string | undefined): ParsedMultiActionImportV2Rows {
+  const records: ImportedSolutionRecord[] = [];
+  const canonicalKeys: string[] = [];
+  const issues: ImportValidationIssue[] = [];
+  const warnings: ImportValidationIssue[] = [];
+  let multiActionHandCount = 0;
+  let multiActionActionCount = 0;
+
+  rows.forEach((row, index) => {
+    const rowNumber = index + 1;
+    if (!isMultiActionImportV2Record(row)) {
+      issues.push({
+        rowNumber,
+        severity: "error",
+        code: "MULTI_ACTION_V2_INVALID",
+        field: "schemaVersion",
+        message: "all records in a v2 import payload must declare schemaVersion multi-action-v2"
+      });
+      return;
+    }
+
+    const result = validateMultiActionImportV2Record(row);
+    for (const issue of result.issues) {
+      issues.push({
+        rowNumber,
+        severity: "error",
+        code: "MULTI_ACTION_V2_INVALID",
+        field: issue.path,
+        message: issue.message
+      });
+    }
+    for (const warning of result.warnings) {
+      warnings.push({
+        rowNumber,
+        severity: "warning",
+        code: "MULTI_ACTION_V2_WARNING",
+        field: warning.path,
+        message: warning.message
+      });
+    }
+
+    if (!result.valid || !result.normalizedRecord) {
+      return;
+    }
+
+    const rawRecord = row as Record<string, unknown>;
+    const spot = result.normalizedRecord.spot as SpotInput;
+    const spotIssues = validateSpotShape(spot);
+    for (const message of spotIssues) {
+      issues.push({
+        rowNumber,
+        severity: "error",
+        code: "INVALID_SPOT_FIELD",
+        field: "spot",
+        message
+      });
+    }
+
+    let canonicalKey: string | null = null;
+    try {
+      canonicalKey = canonicalSpotKey(spot);
+    } catch (error) {
+      issues.push({
+        rowNumber,
+        severity: "error",
+        code: "CANONICAL_KEY_FAILED",
+        field: "spot",
+        message: `canonical key generation failed: ${error instanceof Error ? error.message : "unknown error"}`
+      });
+    }
+
+    if (spotIssues.length > 0 || !canonicalKey) {
+      return;
+    }
+
+    const baseRecord: ImportedSolutionRecord = {
+      spot,
+      strategy: result.normalizedRecord.strategy as unknown as ImportedSolutionRecord["strategy"]
+    };
+    if (typeof rawRecord.sourceLabel === "string") {
+      baseRecord.sourceLabel = rawRecord.sourceLabel;
+    } else if (payloadSourceLabel) {
+      baseRecord.sourceLabel = payloadSourceLabel;
+    }
+    if (typeof rawRecord.externalId === "string") {
+      baseRecord.externalId = rawRecord.externalId;
+    }
+
+    const evSummary = isEvSummary(rawRecord.evSummary) ? rawRecord.evSummary : null;
+    if (evSummary === null) {
+      records.push(baseRecord);
+    } else {
+      records.push({ ...baseRecord, evSummary });
+    }
+    canonicalKeys.push(canonicalKey);
+    multiActionHandCount += result.summary.handCount;
+    multiActionActionCount += result.summary.actionCount;
+  });
+
+  return {
+    records,
+    canonicalKeys,
+    issues,
+    warnings,
+    multiActionHandCount,
+    multiActionActionCount
+  };
+}
+
 const HAND_KEY_SET = new Set(HAND_KEYS);
 const HAND_ACTION_SET = new Set(["SHOVE", "FOLD", "MIXED"]);
 
@@ -372,11 +568,46 @@ function validateImportPayload(payload: Pick<HrcImportPayload, "format" | "conte
   const rowHasError = new Map<number, boolean>();
   const canonicalPreview = new Map<string, number[]>();
   const rows = extractValidationRows(payload, issues, rowHasError);
+  let schemaVersion: string | null = null;
+  let multiActionStrategyCount = 0;
+  let multiActionHandCount = 0;
+  let actionCount = 0;
+  let multiActionWarningCount = 0;
+  let multiActionInvalidCount = 0;
 
   for (const row of rows) {
+    const isV2Row = isMultiActionImportV2Record(row.raw);
     validateSpotForImport(row.rowNumber, row.spot, issues, rowHasError, canonicalPreview);
-    validateStrategyForImport(row.rowNumber, row.strategy, issues, rowHasError);
-    validateEvSummaryForImport(row.rowNumber, row.evSummary, issues, rowHasError);
+    if (isV2Row) {
+      schemaVersion = "multi-action-v2";
+      const result = validateMultiActionImportV2Record(row.raw);
+      multiActionStrategyCount += result.valid ? 1 : 0;
+      multiActionHandCount += result.summary.multiActionHandCount;
+      actionCount += result.summary.actionCount;
+      multiActionWarningCount += result.summary.warningCount;
+      multiActionInvalidCount += result.summary.invalidCount;
+      for (const issue of result.issues) {
+        pushIssue(issues, rowHasError, {
+          rowNumber: row.rowNumber,
+          severity: "error",
+          code: "MULTI_ACTION_V2_INVALID",
+          field: issue.path,
+          message: issue.message
+        });
+      }
+      for (const warning of result.warnings) {
+        pushIssue(issues, rowHasError, {
+          rowNumber: row.rowNumber,
+          severity: "warning",
+          code: "MULTI_ACTION_V2_WARNING",
+          field: warning.path,
+          message: warning.message
+        });
+      }
+    } else {
+      validateStrategyForImport(row.rowNumber, row.strategy, issues, rowHasError);
+      validateEvSummaryForImport(row.rowNumber, row.evSummary, issues, rowHasError);
+    }
   }
 
   const duplicateCanonicalKeyPreview: DuplicateCanonicalPreview[] = [];
@@ -420,12 +651,23 @@ function validateImportPayload(payload: Pick<HrcImportPayload, "format" | "conte
     duplicateCanonicalKeyCount,
     duplicateCanonicalKeyPreview,
     issues,
-    generatedAt: new Date().toISOString()
+    generatedAt: new Date().toISOString(),
+    ...(schemaVersion
+      ? {
+          schemaVersion,
+          multiActionStrategyCount,
+          multiActionHandCount,
+          actionCount,
+          multiActionWarningCount,
+          multiActionInvalidCount
+        }
+      : {})
   };
 }
 
 interface ValidationRow {
   rowNumber: number;
+  raw: unknown;
   spot: unknown;
   strategy: unknown;
   evSummary: unknown;
@@ -462,7 +704,9 @@ function extractJsonValidationRows(content: string, issues: ImportValidationIssu
     rawRows = parsed;
   } else if (parsed && typeof parsed === "object") {
     const record = parsed as Record<string, unknown>;
-    if (Array.isArray(record.records)) {
+    if (isMultiActionImportV2Record(record)) {
+      rawRows = [record];
+    } else if (Array.isArray(record.records)) {
       rawRows = record.records;
     } else if (Array.isArray(record.solutions)) {
       rawRows = record.solutions;
@@ -492,6 +736,7 @@ function extractJsonValidationRows(content: string, issues: ImportValidationIssu
       });
       return {
         rowNumber,
+        raw: rawRow,
         spot: null,
         strategy: null,
         evSummary: null
@@ -500,6 +745,7 @@ function extractJsonValidationRows(content: string, issues: ImportValidationIssu
     const item = rawRow as Record<string, unknown>;
     return {
       rowNumber,
+      raw: rawRow,
       spot: item.spot,
       strategy: item.strategy,
       evSummary: item.evSummary ?? null
@@ -592,7 +838,7 @@ function extractCsvValidationRows(content: string, issues: ImportValidationIssue
       }
     }
 
-    return { rowNumber, spot, strategy, evSummary };
+    return { rowNumber, raw: { spot, strategy, evSummary }, spot, strategy, evSummary };
   });
 }
 
@@ -1031,6 +1277,14 @@ function toRecord(value: unknown): Record<string, unknown> | null {
     return null;
   }
   return value as Record<string, unknown>;
+}
+
+function isEvSummary(value: unknown): value is EvSummary {
+  const record = toRecord(value);
+  if (!record) {
+    return false;
+  }
+  return record.unit === "prize" || record.unit === "chips" || record.unit === "unknown";
 }
 
 function readOptionalNumber(value: unknown): number | null {

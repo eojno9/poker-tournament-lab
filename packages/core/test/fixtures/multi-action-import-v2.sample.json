@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "multi-action-v2",
+  "spot": {
+    "gameType": "NLHE_MTT",
+    "tournamentType": "REGULAR",
+    "decisionType": "PUSH_FOLD",
+    "tableSize": 6,
+    "heroSeat": 3,
+    "heroPosition": "CO",
+    "potBb": 2.4,
+    "blinds": {
+      "smallBb": 0.5,
+      "bigBb": 1,
+      "anteBb": 0.125
+    },
+    "players": [
+      {
+        "seat": 1,
+        "position": "UTG",
+        "stackBb": 18,
+        "inHand": true
+      },
+      {
+        "seat": 2,
+        "position": "HJ",
+        "stackBb": 16,
+        "inHand": true
+      },
+      {
+        "seat": 3,
+        "position": "CO",
+        "stackBb": 20,
+        "inHand": true,
+        "isHero": true
+      },
+      {
+        "seat": 4,
+        "position": "BTN",
+        "stackBb": 22,
+        "inHand": true
+      },
+      {
+        "seat": 5,
+        "position": "SB",
+        "stackBb": 14,
+        "inHand": true
+      },
+      {
+        "seat": 6,
+        "position": "BB",
+        "stackBb": 19,
+        "inHand": true
+      }
+    ],
+    "payouts": [50, 30, 20],
+    "actionPath": ["FOLD", "FOLD", "CO_DECISION"]
+  },
+  "strategy": {
+    "AKs": {
+      "actions": [
+        {
+          "action": "RAISE",
+          "sizeBb": 2.2,
+          "rawSizeLabel": "2.2bb",
+          "frequency": 0.55,
+          "ev": 0.18,
+          "chipEV": 0.21,
+          "icmEV": 0.18,
+          "sourceActionLabel": "Raise 2.2bb"
+        },
+        {
+          "action": "ALL_IN",
+          "isAllIn": true,
+          "frequency": 0.45,
+          "ev": 0.16,
+          "chipEV": 0.19,
+          "icmEV": 0.16,
+          "sourceActionLabel": "All-in"
+        }
+      ]
+    },
+    "72o": {
+      "actions": [
+        {
+          "action": "FOLD",
+          "frequency": 1,
+          "ev": null,
+          "chipEV": null,
+          "icmEV": null
+        }
+      ]
+    }
+  },
+  "sourceMetadata": {
+    "fileName": "multi-action-v2-sample.json"
+  }
+}

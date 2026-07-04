@@ -156,6 +156,12 @@ export interface ImportValidationSummary {
   duplicateCanonicalKeyPreview: DuplicateCanonicalPreview[];
   issues: ImportValidationIssue[];
   generatedAt: string;
+  schemaVersion?: string | null;
+  multiActionStrategyCount?: number;
+  multiActionHandCount?: number;
+  actionCount?: number;
+  multiActionWarningCount?: number;
+  multiActionInvalidCount?: number;
 }
 
 export interface CanonicalKeyDiffRequest {

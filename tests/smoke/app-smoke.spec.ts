@@ -7,7 +7,33 @@ const hrcResponse = {
   assumptions: ["Input spot canonical key exactly matches the imported DB record."],
   limitations: ["Near match is not treated as solved."],
   strategy: {
-    AA: { action: "SHOVE", frequency: 1, evPush: 1.2, evFold: 0.6 }
+    AA: {
+      hand: "AA",
+      actions: [
+        {
+          action: "RAISE",
+          size: { sizeBb: 2.2, rawSizeLabel: "2.2bb" },
+          frequency: 0.4,
+          ev: 1.1,
+          chipEv: 1.3,
+          icmEv: 1.1,
+          sourceActionLabel: "Raise 2.2bb",
+          warnings: []
+        },
+        {
+          action: "ALL_IN",
+          size: { isAllIn: true },
+          frequency: 0.6,
+          ev: 1.2,
+          chipEv: 1.4,
+          icmEv: 1.2,
+          sourceActionLabel: "Jam",
+          warnings: []
+        }
+      ],
+      totalFrequency: 1,
+      warnings: []
+    }
   },
   evSummary: {
     unit: "chips",
@@ -129,6 +155,56 @@ const databaseSampleSolution = {
     deltaEv: 0.4,
     bestAction: "SHOVE",
     notes: []
+  }
+};
+
+const databaseV2SampleSolution = {
+  ...databaseSampleSolution,
+  strategy: {
+    AA: {
+      hand: "AA",
+      actions: [
+        {
+          action: "RAISE",
+          size: { sizeBb: 2.2, rawSizeLabel: "2.2bb" },
+          frequency: 0.45,
+          ev: 1.32,
+          chipEv: 1.5,
+          icmEv: 1.32,
+          sourceActionLabel: "Raise 2.2bb",
+          warnings: []
+        },
+        {
+          action: "ALL_IN",
+          size: { isAllIn: true },
+          frequency: 0.55,
+          ev: 1.4,
+          chipEv: 1.6,
+          icmEv: 1.4,
+          sourceActionLabel: "Jam",
+          warnings: []
+        }
+      ],
+      totalFrequency: 1,
+      warnings: []
+    },
+    KK: {
+      hand: "KK",
+      actions: [
+        {
+          action: "CALL",
+          size: null,
+          frequency: 1,
+          ev: null,
+          chipEv: null,
+          icmEv: null,
+          sourceActionLabel: "Call",
+          warnings: ["CALL size is not provided"]
+        }
+      ],
+      totalFrequency: 1,
+      warnings: ["CALL size is not provided"]
+    }
   }
 };
 
@@ -452,7 +528,11 @@ test.describe("v1.2 smoke", () => {
     await expect(hrcMultiActionDetail).toBeVisible();
     await expect(hrcMultiActionDetail).toContainText("Multi-action detail");
     await expect(hrcMultiActionDetail).toContainText("read-only");
+    await expect(hrcMultiActionDetail).toContainText("v2 multi-action strategy");
+    await expect(hrcMultiActionDetail).toContainText("multi-action-v2");
     await expect(hrcMultiActionDetail).toContainText("AA");
+    await expect(hrcMultiActionDetail).toContainText("RAISE");
+    await expect(hrcMultiActionDetail).toContainText("2.2bb");
     await expect(hrcMultiActionDetail).toContainText("ALL_IN");
 
     await runButton.click();
@@ -521,7 +601,7 @@ test.describe("v1.2 smoke", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ solutions: [databaseSampleSolution] })
+        body: JSON.stringify({ solutions: [databaseV2SampleSolution] })
       });
     });
 
@@ -550,10 +630,14 @@ test.describe("v1.2 smoke", () => {
     await expect(multiActionPreview).toBeVisible();
     await expect(multiActionPreview).toContainText("Multi-action preview");
     await expect(multiActionPreview).toContainText("read-only");
+    await expect(multiActionPreview).toContainText("v2 multi-action strategy");
+    await expect(multiActionPreview).toContainText("multi-action-v2");
     await expect(multiActionPreview).toContainText("hand");
     await expect(multiActionPreview).toContainText("frequency");
     await expect(multiActionPreview).toContainText("EV");
     await expect(multiActionPreview).toContainText("AA");
+    await expect(multiActionPreview).toContainText("RAISE");
+    await expect(multiActionPreview).toContainText("2.2bb");
     await expect(multiActionPreview).toContainText("ALL_IN");
 
     await page.getByTestId("db-fill-analyze-button").click();

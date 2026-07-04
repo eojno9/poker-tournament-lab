@@ -43,6 +43,55 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v1.8 Multi-Action Import v2
+v1.8 extends the v1.7 `hand -> actions[]` foundation into an import/storage-capable v2 strategy format. It is still an off-table data foundation, not a new solver.
+
+### Import v2 Strategy Shape
+- Import records can use `schemaVersion: "multi-action-v2"`.
+- Strategy data can be stored as `hand -> actions[]`.
+- Each action can preserve:
+  - action kind: `FOLD`, `CHECK`, `CALL`, `BET`, `RAISE`, `ALL_IN`, `UNKNOWN`
+  - `sizeBb`
+  - `sizePctPot`
+  - `isAllIn`
+  - `rawSizeLabel`
+  - `frequency`
+  - `EV`
+  - `ChipEV`
+  - `ICM EV`
+  - `sourceActionLabel`
+  - `warnings`
+
+### Validation
+- v2 validation checks hand notation, non-empty `actions[]`, action kind normalization, frequency range `0..1`, EV number/null values, and warning rows.
+- `RAISE`, `BET`, and `CALL` get non-blocking size warnings when size is not explicit.
+- `ALL_IN` size remains optional.
+- `UNKNOWN` actions are allowed only with warnings.
+- Missing values are displayed as `제공되지 않음`; missing sizes are displayed as `사이즈 미지정` or warning text.
+
+### Storage Strategy
+- v1.8 uses the existing `solutions.strategy` JSON storage path.
+- v2 rows store native `hand -> actions[]` JSON in that existing strategy field.
+- Existing v1 single-action strategy rows remain unchanged.
+- No DB schema migration was added.
+- No new endpoint was added; the existing import flow branches by payload schema version.
+- `/api/solutions` returns the stored strategy JSON so the web app can display v1 and v2 rows.
+
+### UI Connection
+- Database Detail Multi-action preview prefers stored v2 `actions[]` when present.
+- Analyze Result Multi-action detail prefers stored v2 `actions[]` when present.
+- v1 legacy strategy rows still use the v1.7 legacy adapter and may show one action per hand.
+- v2 rows can show multiple actions per hand with action, size, frequency, EV, ChipEV, ICM EV, source label, and warnings.
+
+### v1.8 Limits
+- v1.8 is not a solver and does not compute new EV values.
+- No HRC exact lookup policy changed.
+- No fallback/analyze/import/solver routing policy changed.
+- No full GTO Wizard-style Solution Browser v2 was completed.
+- No solver job generator was completed.
+- No Nash, approximate Nash, PKO, bounty, satellite solver, postflop solver, or nearest recommendation was added.
+- No OCR, screen capture, overlay, hotkey, live watcher, poker client integration, real-time assistance, or RTA workflow was added.
+
 ## v1.7 Multi-Action Schema Foundation
 v1.7은 DB schema migration 없이 기존 strategy를 `hand -> actions[]` view model로 변환해 보여주는 read-only foundation 단계입니다. 새 solver, 새 API, DB schema 변경 없이 Database와 Analyze 결과에서 action-level 정보를 더 명확히 확인할 수 있게 합니다.
 

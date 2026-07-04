@@ -1741,7 +1741,8 @@ function AnalyzeMultiActionDetailBlock({
     <div className="result-block" data-testid="analyze-multi-action-detail">
       <h3>Hand별 액션 상세 (Multi-action detail)</h3>
       <div className="notice">
-        <p>현재 v1.7은 기존 strategy를 actions[] 형태로 변환해 보여주는 read-only preview입니다.</p>
+        <p>현재 v1.8은 저장된 v2 actions[]가 있으면 원본 multi-action strategy를 read-only로 표시합니다.</p>
+        <p>{view?.isReadOnlyLegacyAdapter ? "v1 legacy strategy를 actions[] view model로 변환해 표시합니다." : "v2 multi-action strategy의 원본 actions[] 데이터를 표시합니다."}</p>
         <p>대부분 기존 DB에서는 hand당 action 1개만 표시될 수 있습니다.</p>
         <p>향후 schema v2/import v2에서 raise/call/fold/all-in 복수 action frequency와 EV를 저장할 예정입니다.</p>
       </div>
@@ -1754,7 +1755,7 @@ function AnalyzeMultiActionDetailBlock({
             <ResultDetailItem label="source" value={view.source} />
             <ResultDetailItem label="actionKinds" value={view.actionKinds.join(", ") || "제공되지 않음"} />
             <ResultDetailItem label="preview hands" value={`${previewHands.length} / ${view.hands.length}`} />
-            <ResultDetailItem label="legacy adapter" value={view.isReadOnlyLegacyAdapter ? "read-only" : "제공되지 않음"} />
+            <ResultDetailItem label="strategy mode" value={view.strategyMode} />
           </div>
 
           <div className="range-table" role="table" aria-label="analyze multi-action detail table">
@@ -2203,6 +2204,14 @@ function ImportValidationCard({ summary, loading }: { summary: ImportValidationS
             <ResultDetailItem label="warning rows" value={formatCount(summary.warningCount)} />
             <ResultDetailItem label="error rows" value={formatCount(summary.errorCount)} />
             <ResultDetailItem label="duplicate canonical keys" value={formatCount(summary.duplicateCanonicalKeyCount)} />
+            {summary.schemaVersion ? <ResultDetailItem label="schemaVersion" value={summary.schemaVersion} /> : null}
+            {summary.schemaVersion ? (
+              <ResultDetailItem label="multiActionStrategyCount" value={formatCount(summary.multiActionStrategyCount ?? null)} />
+            ) : null}
+            {summary.schemaVersion ? (
+              <ResultDetailItem label="multiActionHandCount" value={formatCount(summary.multiActionHandCount ?? null)} />
+            ) : null}
+            {summary.schemaVersion ? <ResultDetailItem label="actionCount" value={formatCount(summary.actionCount ?? null)} /> : null}
           </div>
           <ImportValidationDetails duplicatePreview={summary.duplicateCanonicalKeyPreview} issues={summary.issues} />
         </>
@@ -2866,7 +2875,8 @@ function DatabaseMultiActionPreviewBlock({ row }: { row: SolutionListItem }) {
     <div className="result-block" data-testid="db-multi-action-preview">
       <h3>액션별 전략 미리보기 (Multi-action preview)</h3>
       <div className="notice">
-        <p>v1.7은 DB schema migration 없이 기존 strategy를 multi-action view로 변환해 보여줍니다.</p>
+        <p>v1.8은 DB schema migration 없이 저장된 v2 actions[] 또는 기존 strategy를 multi-action view로 보여줍니다.</p>
+        <p>{view?.isReadOnlyLegacyAdapter ? "v1 legacy strategy를 actions[] view model로 변환해 표시합니다." : "v2 multi-action strategy의 원본 actions[] 데이터를 표시합니다."}</p>
         <p>향후 schema v2에서는 raise/call/fold/all-in 복수 action frequency와 EV를 저장할 예정입니다.</p>
         <p>현재 preview는 read-only 표시이며 새 solver 계산이 아닙니다.</p>
       </div>
@@ -2879,7 +2889,7 @@ function DatabaseMultiActionPreviewBlock({ row }: { row: SolutionListItem }) {
             <ResultDetailItem label="source" value={view.source} />
             <ResultDetailItem label="actionKinds" value={view.actionKinds.join(", ") || "제공되지 않음"} />
             <ResultDetailItem label="preview hands" value={`${previewHands.length} / ${view.hands.length}`} />
-            <ResultDetailItem label="legacy adapter" value={view.isReadOnlyLegacyAdapter ? "read-only" : "제공되지 않음"} />
+            <ResultDetailItem label="strategy mode" value={view.strategyMode} />
           </div>
 
           <div className="range-table" role="table" aria-label="database multi-action preview table">
