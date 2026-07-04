@@ -43,6 +43,100 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.4 Real HRC Raw Intake
+
+v2.4 reopens the raw HRC export compatibility track that remained pending in v2.3. It uses one real raw HRC zip candidate only as repo-external source material, then preserves a sanitized JSON fixture and pure adapter/report tests. The raw zip is not connected to product import, API, DB writes, solver logic, or UI.
+
+This is an off-table compatibility and intake preparation step. It is not a strategy recommendation workflow.
+
+### Raw HRC Zip Candidate
+
+- Original raw zip remains outside the repo.
+- Raw zip is not committed.
+- Full raw zip extraction is not committed.
+- Repo uses a sanitized JSON fixture only.
+- Generalized candidate file name: `mtt_10p_btn_vs_co_open_25bb_bba_chipev_depth3.zip`
+
+### Sanitized Fixture
+
+Fixture location:
+
+- `packages/core/test/fixtures/real-hrc-raw-samples/`
+
+Fixture metadata:
+
+- `sampleKind: REAL_HRC_RAW_EXPORT_SAMPLE`
+- `sanitized: true`
+- `originalTool: HRC`
+- `rawZipCommitted: false`
+- `streetScope: PREFLOP`
+- `source: HRC_PRECOMPUTED_DB`
+
+The fixture is a raw HRC shape compatibility sample. It is not a product import payload and is not a GTO strategy recommendation.
+
+### Raw HRC Node Shape
+
+The sanitized fixture preserves the raw HRC node shape:
+
+- node-level `actions[]`
+- `hands[hand].played[]`
+- `hands[hand].evs[]`
+- `sequence[]`
+- 169 hands
+
+`played[]` and `evs[]` are interpreted only by index against node-level `actions[]` for compatibility reporting and adapter tests.
+
+### Raw Node Adapter
+
+v2.4 adds pure adapter/report functions in core:
+
+- `convertHrcRawNodeToMultiActionStrategy`
+- `mapHrcActionTypeToAppActionKind`
+- `mapHrcActionAmountToSizeLabel`
+- `buildHrcRawAdapterReport`
+
+Observed raw action mapping is intentionally conservative:
+
+- `F` -> `FOLD`
+- `C` -> `CALL`
+- `R` -> `RAISE`
+- unknown action type -> `UNKNOWN` with warning
+
+The adapter can build an app v2 `hand -> actions[]` candidate shape for tests, and that candidate validates independently. The raw fixture itself remains a non-product payload with expected mismatch.
+
+### Amount Semantics
+
+v2.4 does not infer the HRC amount unit.
+
+- `amountUnit: UNKNOWN`
+- `amountInterpretation: RAW_HRC_AMOUNT_UNINTERPRETED`
+- `sizeLabelPolicy: PRESERVE_AS_RAW_SIZE_LABEL`
+- `bbConversionApplied: false`
+- `chipConversionApplied: false`
+
+Raw amount values are preserved in `rawSizeLabel` and source metadata candidate fields. No bb/chip conversion should be added until HRC format documentation or multiple raw sample comparison confirms the unit.
+
+### v2.4 Limits
+
+- Product import route is not connected.
+- No new API.
+- No DB migration.
+- No production DB change.
+- No UI change.
+- No raw zip commit.
+- No full raw zip extraction commit.
+- No solver.
+- No nearest recommendation.
+- No RTA/live workflow.
+
+### Safety Scope
+
+- Off-table only.
+- Raw HRC zip must remain outside the repo until sanitized.
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration: none.
+- Nash / approximate Nash: none.
+- PKO / bounty / postflop: none.
+
 ## v2.3 HRC Compatibility
 
 v2.3은 v2.2 TEST_ONLY/SAMPLE fixture 이후 단계로, 실제 imported HRC-derived DB shape를 read-only로 검증합니다. raw HRC export 원본 검증과 이미 import된 DB-derived 검증은 서로 다른 트랙으로 분리합니다.
