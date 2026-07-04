@@ -118,6 +118,13 @@ import {
 import { buildDatabaseActionSizingSummary } from "./databaseActionSizingSummary.js";
 import { buildMultiActionFromAnalyzeResult, buildMultiActionFromSolution } from "./multiActionAdapter.js";
 import { buildBrowserV2Model, type BrowserV2ActionView, type BrowserV2EvMode, type BrowserV2HandCell, type BrowserV2Model } from "./browserV2Model.js";
+import {
+  classifyActionTreeSpot,
+  type ActionTreeActionKind,
+  type ActionTreeClassification,
+  type ActionTreeNode,
+  type ActionTreeSpotType
+} from "./actionTreeClassifier.js";
 
 type Tab = "analyze" | "browser" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
@@ -153,6 +160,13 @@ interface SolutionCatalogItem {
   strategyCount: number | null;
   sourceFile: string;
   canonicalKey: string;
+  actionTree: ActionTreeClassification;
+}
+
+interface BrowserNodeCandidateSummary {
+  candidateCount: number;
+  availableActions: ActionTreeActionKind[];
+  availableSizes: string[];
 }
 
 type ReportBadgeTone = "ok" | "warn" | "fail" | "missing";
@@ -245,6 +259,8 @@ function SolutionBrowserView() {
   const [selectedBrowserActionKind, setSelectedBrowserActionKind] = useState("ALL");
   const [selectedBrowserSizeLabel, setSelectedBrowserSizeLabel] = useState("ALL");
   const [selectedBrowserEvMode, setSelectedBrowserEvMode] = useState<BrowserV2EvMode>("EV");
+  const [selectedSpotTypeFilter, setSelectedSpotTypeFilter] = useState("ALL");
+  const [selectedActionNodeFilter, setSelectedActionNodeFilter] = useState("ALL");
 
   useEffect(() => {
     let cancelled = false;
@@ -272,19 +288,35 @@ function SolutionBrowserView() {
   }, []);
 
   const catalog = useMemo(() => solutions.map((solution) => buildCatalogItem(solution)), [solutions]);
+  const spotTypeOptions = useMemo(() => ["ALL", ...uniqueSorted(catalog.map((item) => item.actionTree.spotType))], [catalog]);
+  const actionNodeOptions = useMemo(() => ["ALL", ...uniqueSorted(catalog.map((item) => item.actionTree.actionNode))], [catalog]);
+  const browserCatalog = useMemo(
+    () => filterBrowserCatalogByActionTree(catalog, selectedSpotTypeFilter, selectedActionNodeFilter),
+    [catalog, selectedActionNodeFilter, selectedSpotTypeFilter]
+  );
+  const nodeCandidateSummary = useMemo(() => buildBrowserNodeCandidateSummary(browserCatalog), [browserCatalog]);
 
   useEffect(() => {
-    if (catalog.length === 0) {
+    if (selectedSpotTypeFilter !== "ALL" && !spotTypeOptions.includes(selectedSpotTypeFilter)) {
+      setSelectedSpotTypeFilter("ALL");
+    }
+    if (selectedActionNodeFilter !== "ALL" && !actionNodeOptions.includes(selectedActionNodeFilter)) {
+      setSelectedActionNodeFilter("ALL");
+    }
+  }, [actionNodeOptions, selectedActionNodeFilter, selectedSpotTypeFilter, spotTypeOptions]);
+
+  useEffect(() => {
+    if (browserCatalog.length === 0) {
       setSelectedSolutionId(null);
       return;
     }
-    if (!selectedSolutionId || !catalog.some((item) => item.row.id === selectedSolutionId)) {
-      const hrcCandidate = catalog.find((item) => item.row.sourceLabel.toUpperCase().includes("HRC"));
-      setSelectedSolutionId((hrcCandidate ?? catalog[0])?.row.id ?? null);
+    if (!selectedSolutionId || !browserCatalog.some((item) => item.row.id === selectedSolutionId)) {
+      const hrcCandidate = browserCatalog.find((item) => item.row.sourceLabel.toUpperCase().includes("HRC"));
+      setSelectedSolutionId((hrcCandidate ?? browserCatalog[0])?.row.id ?? null);
     }
-  }, [catalog, selectedSolutionId]);
+  }, [browserCatalog, selectedSolutionId]);
 
-  const selected = catalog.find((item) => item.row.id === selectedSolutionId) ?? null;
+  const selected = browserCatalog.find((item) => item.row.id === selectedSolutionId) ?? null;
   const selectedBrowserModel = useMemo(() => {
     if (!selected) {
       return null;
@@ -370,6 +402,8 @@ function SolutionBrowserView() {
         <p>/api/solutions 기존 DB 데이터만 사용합니다. nearest recommendation 없음. RTA/live 기능 없음.</p>
       </div>
 
+      <SolutionBrowserActionTreeBreadcrumb selected={selected} />
+
       <div className="solution-browser-grid" data-testid="solution-browser-layout">
         <section className="panel stack solution-browser-panel" data-testid="browser-spot-selector-panel">
           <div className="panel-title">
@@ -382,9 +416,59 @@ function SolutionBrowserView() {
           {loading ? <p className="muted">solution 목록을 불러오는 중...</p> : null}
           {error ? <p className="error-text">Browser solution 조회 실패: {error}</p> : null}
           {!loading && !error && catalog.length === 0 ? <p className="muted">조건에 맞는 solution 없음 / 저장된 solution이 없습니다.</p> : null}
+          {!loading && !error && catalog.length > 0 ? (
+            <div className="browser-action-tree-filters" data-testid="browser-action-tree-filters">
+              <label>
+                Spot Type filter
+                <select
+                  aria-label="browser spot type filter"
+                  value={selectedSpotTypeFilter}
+                  onChange={(event) => setSelectedSpotTypeFilter(event.target.value)}
+                >
+                  {spotTypeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "ALL" ? "ALL" : formatActionTreeSpotType(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Action Node filter
+                <select
+                  aria-label="browser action node filter"
+                  value={selectedActionNodeFilter}
+                  onChange={(event) => setSelectedActionNodeFilter(event.target.value)}
+                >
+                  {actionNodeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option === "ALL" ? "ALL" : formatActionTreeNode(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted">Spot Type / Action Node filter는 DB에 실제 존재하는 solution 분류값만 표시합니다.</p>
+              <p className="muted">LIMP는 unopened/first-in pot의 limp 액션이며 CALL과 분리해 표시합니다.</p>
+            </div>
+          ) : null}
+          {!loading && !error && catalog.length > 0 ? (
+            <SolutionBrowserNodeCandidateSummary
+              actionNodeFilter={selectedActionNodeFilter}
+              selected={selected}
+              spotTypeFilter={selectedSpotTypeFilter}
+              summary={nodeCandidateSummary}
+            />
+          ) : null}
+          {!loading && !error && catalog.length > 0 && browserCatalog.length === 0 ? (
+            <div className="notice browser-action-tree-empty-state" data-testid="browser-action-tree-empty">
+              <p>조건에 맞는 solution이 없습니다.</p>
+              <p>현재 적용된 필터: Spot Type = {formatBrowserSpotTypeFilter(selectedSpotTypeFilter)}, Action Node = {formatBrowserActionNodeFilter(selectedActionNodeFilter)}</p>
+              <p>nearest recommendation은 수행하지 않습니다.</p>
+              <p>DB에 저장된 solution만 표시합니다.</p>
+            </div>
+          ) : null}
 
           <div className="solution-browser-candidate-list" aria-label="browser solution candidates">
-            {catalog.map((item) => (
+            {browserCatalog.map((item) => (
               <button
                 className={`solution-browser-candidate ${item.row.id === selectedSolutionId ? "selected" : ""}`}
                 data-testid="browser-solution-candidate"
@@ -397,6 +481,8 @@ function SolutionBrowserView() {
                 <span>Remaining {formatCount(countRemainingPlayers(item.row.spot))}</span>
                 <span>Hero stack {formatBb(item.heroStackBb)}</span>
                 <span>Action Node {formatBrowserActionPath(item.row.spot.actionPath)}</span>
+                <span>Spot Type {formatActionTreeSpotType(item.actionTree.spotType)}</span>
+                <span>Tree Node {formatActionTreeNode(item.actionTree.actionNode)}</span>
                 <span>Tree {item.treeConfig || "제공되지 않음"}</span>
                 <span>Source {item.row.sourceLabel || "제공되지 않음"}</span>
                 <span>Source file {item.sourceFile || "제공되지 않음"}</span>
@@ -425,6 +511,7 @@ function SolutionBrowserView() {
                 <ResultDetailItem label="strategy schema" value={selectedStrategySchema} />
                 <ResultDetailItem label="strategy entries" value={formatCount(selected.strategyCount)} />
               </div>
+              <SolutionBrowserActionTreeSummary selected={selected} />
               <div className="browser-v2-controls" data-testid="solution-browser-controls">
                 <label>
                   Action kind filter
@@ -469,8 +556,15 @@ function SolutionBrowserView() {
                   </select>
                 </label>
               </div>
+              <SolutionBrowserActionSizeFilterContext
+                actionKindFilter={selectedBrowserActionKind}
+                actionTree={selected.actionTree}
+                model={selectedBrowserModel}
+                sizeLabelFilter={selectedBrowserSizeLabel}
+              />
               <SolutionBrowserStrategyMatrix
                 actionKindFilter={selectedBrowserActionKind}
+                actionTree={selected.actionTree}
                 evMode={selectedBrowserEvMode}
                 filteredHands={filteredBrowserHands}
                 model={selectedBrowserModel}
@@ -494,6 +588,7 @@ function SolutionBrowserView() {
             <>
               <SolutionBrowserHandDetail
                 actionKindFilter={selectedBrowserActionKind}
+                actionTree={selected.actionTree}
                 evMode={selectedBrowserEvMode}
                 filteredHands={filteredBrowserHands}
                 model={selectedBrowserModel}
@@ -515,8 +610,160 @@ function SolutionBrowserView() {
   );
 }
 
+function SolutionBrowserActionTreeBreadcrumb({ selected }: { selected: SolutionCatalogItem | null }) {
+  if (!selected) {
+    return (
+      <div className="panel stack browser-action-tree-breadcrumb" data-testid="browser-action-tree-breadcrumb">
+        <div>
+          <span className="eyebrow">Action Tree</span>
+          <h2>Action tree 정보 제공되지 않음</h2>
+        </div>
+        <p className="muted">왼쪽 Spot Selector에서 DB solution을 선택하면 action tree breadcrumb가 표시됩니다.</p>
+      </div>
+    );
+  }
+
+  const actionTree = selected.actionTree;
+  return (
+    <div className="panel stack browser-action-tree-breadcrumb" data-testid="browser-action-tree-breadcrumb">
+      <div>
+        <span className="eyebrow">Action Tree</span>
+        <h2>{formatActionTreeList(actionTree.breadcrumbItems, " > ")}</h2>
+      </div>
+      <div className="browser-action-tree-badges" data-testid="browser-action-tree-badges">
+        <span>Spot Type: {formatActionTreeSpotType(actionTree.spotType)}</span>
+        <span>Action Node: {formatActionTreeNode(actionTree.actionNode)}</span>
+        <span>Available Actions: {formatActionTreeList(actionTree.availableActions)}</span>
+        <span>Available Sizes: {formatActionTreeList(actionTree.availableSizes)}</span>
+        <span>Warnings: {actionTree.warnings.length}</span>
+      </div>
+      {actionTree.spotType === "UNKNOWN" ? <p className="muted">Unknown / 분류 신호 부족: DB metadata에서 action node를 확정할 수 없습니다.</p> : null}
+      {actionTree.breadcrumbItems.length === 0 ? <p className="muted">Action tree 정보 제공되지 않음</p> : null}
+      <p className="muted">현재 Browser는 선택한 DB solution의 action tree context를 read-only로 표시합니다.</p>
+    </div>
+  );
+}
+
+function SolutionBrowserActionTreeSummary({ selected }: { selected: SolutionCatalogItem }) {
+  const actionTree = selected.actionTree;
+  return (
+    <div className="browser-action-tree-summary" data-testid="browser-action-tree-summary">
+      <div>
+        <h3>Action Tree Summary</h3>
+        <p className="muted">solution metadata, actionPath, treeConfig, source metadata, strategy actions[] 기반 read-only 분류입니다.</p>
+      </div>
+      <div className="detail-grid">
+        <ResultDetailItem label="Spot Type" value={formatActionTreeSpotType(actionTree.spotType)} />
+        <ResultDetailItem label="Action Node" value={formatActionTreeNode(actionTree.actionNode)} />
+        <ResultDetailItem label="Available Actions" value={formatActionTreeList(actionTree.availableActions)} />
+        <ResultDetailItem label="Available Sizes" value={formatActionTreeList(actionTree.availableSizes)} />
+        <ResultDetailItem label="Breadcrumb" value={formatActionTreeList(actionTree.breadcrumbItems, " > ")} />
+        <ResultDetailItem label="Warnings" value={formatActionTreeList(actionTree.warnings)} />
+      </div>
+      {actionTree.spotType === "UNKNOWN" ? <p className="muted">classifier 결과 UNKNOWN: 분류 신호가 부족합니다.</p> : null}
+      {actionTree.availableActions.length === 0 ? <p className="muted">availableActions 정보가 제공되지 않음</p> : null}
+      {actionTree.availableSizes.length === 0 ? <p className="muted">availableSizes 정보가 제공되지 않음</p> : null}
+      <p className="muted">LIMP는 unopened/first-in pot의 limp 액션이며 CALL과 분리해 표시합니다.</p>
+    </div>
+  );
+}
+
+function SolutionBrowserNodeCandidateSummary({
+  actionNodeFilter,
+  selected,
+  spotTypeFilter,
+  summary
+}: {
+  actionNodeFilter: string;
+  selected: SolutionCatalogItem | null;
+  spotTypeFilter: string;
+  summary: BrowserNodeCandidateSummary;
+}) {
+  const currentNode = selected
+    ? `${formatActionTreeSpotType(selected.actionTree.spotType)} · ${formatActionTreeNode(selected.actionTree.actionNode)}`
+    : "제공되지 않음";
+  const hasLimp = summary.availableActions.includes("LIMP");
+
+  return (
+    <div className="browser-node-candidate-summary" data-testid="browser-node-candidate-summary">
+      <h3>Node Candidate Summary</h3>
+      <div className="detail-grid">
+        <ResultDetailItem label="Candidate Solutions" value={String(summary.candidateCount)} />
+        <ResultDetailItem label="Current Node" value={currentNode} />
+        <ResultDetailItem label="Available Actions" value={formatActionTreeList(summary.availableActions)} />
+        <ResultDetailItem label="Available Sizes" value={formatActionTreeList(summary.availableSizes)} />
+        <ResultDetailItem
+          label="Filtered by"
+          value={`Spot Type = ${formatBrowserSpotTypeFilter(spotTypeFilter)}, Action Node = ${formatBrowserActionNodeFilter(actionNodeFilter)}`}
+        />
+      </div>
+      <p className="muted">필터는 DB에 실제 존재하는 action/size/node만 기준으로 동작합니다.</p>
+      {hasLimp ? <p className="muted">이 후보 집합에는 CALL과 분리된 LIMP action이 포함됩니다.</p> : null}
+      {summary.candidateCount === 0 ? (
+        <>
+          <p className="muted">조건에 맞는 solution이 없습니다.</p>
+          <p className="muted">nearest recommendation은 수행하지 않습니다.</p>
+          <p className="muted">DB에 저장된 solution만 표시합니다.</p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function SolutionBrowserActionSizeFilterContext({
+  actionKindFilter,
+  actionTree,
+  model,
+  sizeLabelFilter
+}: {
+  actionKindFilter: string;
+  actionTree: ActionTreeClassification;
+  model: BrowserV2Model | null;
+  sizeLabelFilter: string;
+}) {
+  const modelActions = model?.availableActionKinds ?? [];
+  const modelSizes = model?.availableSizeLabels ?? [];
+  return (
+    <div className="browser-action-size-filter-context" data-testid="browser-action-size-filter-context">
+      <h3>Action / Size Filter Context</h3>
+      <div className="detail-grid">
+        <ResultDetailItem label="Current action filter" value={actionKindFilter} />
+        <ResultDetailItem label="Current size filter" value={sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)} />
+        <ResultDetailItem label="Node available actions" value={formatActionTreeList(actionTree.availableActions)} />
+        <ResultDetailItem label="Node available sizes" value={formatActionTreeList(actionTree.availableSizes)} />
+        <ResultDetailItem label="Model action options" value={modelActions.join(" / ") || "제공되지 않음"} />
+        <ResultDetailItem label="Model size options" value={modelSizes.map(formatBrowserV2SizeFilterLabel).join(" / ") || "제공되지 않음"} />
+      </div>
+      <p className="muted">action kind filter와 size label filter는 현재 selected solution의 Browser v2 model에 실제 존재하는 값만 표시합니다.</p>
+      <p className="muted">필터는 DB에 실제 존재하는 action/size만 기준으로 동작합니다.</p>
+    </div>
+  );
+}
+
+function SolutionBrowserNodeContext({
+  actionTree,
+  label,
+  testId
+}: {
+  actionTree: ActionTreeClassification;
+  label: string;
+  testId: string;
+}) {
+  return (
+    <div className="browser-node-context" data-testid={testId}>
+      <strong>
+        {label} — {formatActionTreeSpotType(actionTree.spotType)} · {formatActionTreeNode(actionTree.actionNode)}
+      </strong>
+      <span>{formatActionTreeList(actionTree.breadcrumbItems, " > ")}</span>
+      {actionTree.warnings.length > 0 ? <small>Warnings {actionTree.warnings.length}: {formatActionTreeList(actionTree.warnings)}</small> : null}
+      {actionTree.spotType === "UNKNOWN" ? <small>Unknown / 분류 신호 부족</small> : null}
+    </div>
+  );
+}
+
 function SolutionBrowserStrategyMatrix({
   actionKindFilter,
+  actionTree,
   evMode,
   filteredHands,
   model,
@@ -525,6 +772,7 @@ function SolutionBrowserStrategyMatrix({
   sizeLabelFilter
 }: {
   actionKindFilter: string;
+  actionTree: ActionTreeClassification;
   evMode: BrowserV2EvMode;
   filteredHands: FilteredBrowserV2Hand[];
   model: BrowserV2Model | null;
@@ -535,8 +783,10 @@ function SolutionBrowserStrategyMatrix({
   if (!model) {
     return (
       <div className="notice" data-testid="browser-matrix-empty">
+        <SolutionBrowserNodeContext actionTree={actionTree} label="Strategy Matrix" testId="browser-matrix-node-context" />
         <p>선택한 solution의 Browser v2 model을 생성할 수 없습니다.</p>
-        <p>strategy가 없거나 변환 가능한 hand/action 데이터가 없습니다.</p>
+        <p>strategy 데이터가 제공되지 않았습니다.</p>
+        <p>변환 가능한 hand/action 데이터가 없습니다.</p>
       </div>
     );
   }
@@ -546,6 +796,7 @@ function SolutionBrowserStrategyMatrix({
 
   return (
     <div className="solution-browser-matrix-block" data-testid="browser-strategy-matrix">
+      <SolutionBrowserNodeContext actionTree={actionTree} label="Strategy Matrix" testId="browser-matrix-node-context" />
       <div className="notice">
         <p>선택한 DB solution의 strategy를 표시합니다.</p>
         <p>v2 actions[]는 원본 데이터 기반으로 표시합니다.</p>
@@ -567,10 +818,19 @@ function SolutionBrowserStrategyMatrix({
       </div>
 
       {model.hands.length === 0 ? (
-        <p className="muted">표시 가능한 hand/action 데이터가 제공되지 않음</p>
+        <div className="notice" data-testid="browser-matrix-strategy-empty">
+          <p>strategy 데이터가 제공되지 않았습니다.</p>
+          <p>표시 가능한 hand/action 데이터가 제공되지 않음</p>
+        </div>
       ) : (
         <>
-          {filteredHands.length === 0 ? <p className="muted">선택한 필터에 해당하는 action이 없습니다.</p> : null}
+          {filteredHands.length === 0 ? (
+            <div className="notice" data-testid="browser-matrix-filter-empty">
+              <p>선택한 필터에 해당하는 action이 없습니다.</p>
+              <p>현재 action filter: {actionKindFilter}</p>
+              <p>현재 size filter: {sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)}</p>
+            </div>
+          ) : null}
           <div className="solution-browser-strategy-matrix" aria-label="solution browser action frequency matrix">
             {HAND_KEYS.map((handKey) => {
               const hand = handMap.get(handKey) ?? null;
@@ -606,6 +866,7 @@ function SolutionBrowserStrategyMatrix({
 
 function SolutionBrowserHandDetail({
   actionKindFilter,
+  actionTree,
   evMode,
   filteredHands,
   model,
@@ -613,6 +874,7 @@ function SolutionBrowserHandDetail({
   sizeLabelFilter
 }: {
   actionKindFilter: string;
+  actionTree: ActionTreeClassification;
   evMode: BrowserV2EvMode;
   filteredHands: FilteredBrowserV2Hand[];
   model: BrowserV2Model | null;
@@ -622,8 +884,10 @@ function SolutionBrowserHandDetail({
   if (!model) {
     return (
       <div className="notice" data-testid="browser-hand-detail">
+        <SolutionBrowserNodeContext actionTree={actionTree} label="Hand Detail" testId="browser-hand-node-context" />
         <p>Hand detail을 생성할 수 없습니다.</p>
-        <p>strategy가 없거나 Browser v2 model 변환 결과가 제공되지 않음</p>
+        <p>strategy 데이터가 제공되지 않았습니다.</p>
+        <p>Browser v2 model 변환 결과가 제공되지 않음</p>
       </div>
     );
   }
@@ -631,7 +895,9 @@ function SolutionBrowserHandDetail({
   if (model.hands.length === 0) {
     return (
       <div className="notice" data-testid="browser-hand-detail">
+        <SolutionBrowserNodeContext actionTree={actionTree} label="Hand Detail" testId="browser-hand-node-context" />
         <p>표시 가능한 hand가 없습니다.</p>
+        <p>선택된 hand가 없습니다.</p>
         <p>selected hand에 actions가 제공되지 않음</p>
       </div>
     );
@@ -641,7 +907,11 @@ function SolutionBrowserHandDetail({
   if (!hand) {
     return (
       <div className="notice" data-testid="browser-hand-detail">
+        <SolutionBrowserNodeContext actionTree={actionTree} label="Hand Detail" testId="browser-hand-node-context" />
         <p>선택한 필터에 해당하는 action이 없습니다.</p>
+        <p>선택된 hand가 없습니다.</p>
+        <p>현재 action filter: {actionKindFilter}</p>
+        <p>현재 size filter: {sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)}</p>
         <p>Action kind 또는 size label filter를 ALL로 바꾸면 다시 표시됩니다.</p>
       </div>
     );
@@ -651,6 +921,7 @@ function SolutionBrowserHandDetail({
 
   return (
     <div className="solution-browser-hand-detail" data-testid="browser-hand-detail">
+      <SolutionBrowserNodeContext actionTree={actionTree} label={`Selected Hand: ${hand.hand.hand}`} testId="browser-hand-node-context" />
       <div className="notice">
         <p>선택한 DB solution의 hand detail을 표시합니다.</p>
         <p>v2 actions[]는 원본 데이터 기반으로 표시합니다.</p>
@@ -736,6 +1007,12 @@ function SolutionBrowserMetadataPanel({
         <ResultDetailItem label="source" value={solution.sourceLabel || "제공되지 않음"} />
         <ResultDetailItem label="source label" value={solution.sourceLabel || "제공되지 않음"} />
         <ResultDetailItem label="schema" value={schemaLabel || "schema 정보 제공되지 않음"} />
+        <ResultDetailItem label="Action Tree Spot Type" value={formatActionTreeSpotType(selected.actionTree.spotType)} />
+        <ResultDetailItem label="Action Tree Node" value={formatActionTreeNode(selected.actionTree.actionNode)} />
+        <ResultDetailItem label="Action Tree Breadcrumb" value={formatActionTreeList(selected.actionTree.breadcrumbItems, " > ")} />
+        <ResultDetailItem label="Action Tree Available Actions" value={formatActionTreeList(selected.actionTree.availableActions)} />
+        <ResultDetailItem label="Action Tree Available Sizes" value={formatActionTreeList(selected.actionTree.availableSizes)} />
+        <ResultDetailItem label="Action Tree Warnings" value={formatActionTreeList(selected.actionTree.warnings)} />
         <ResultDetailItem label="hero position" value={selected.heroPosition || "제공되지 않음"} />
         <ResultDetailItem label="table size" value={selected.tableSize === null ? "제공되지 않음" : String(selected.tableSize)} />
         <ResultDetailItem label="remaining players" value={remainingPlayers === null ? "제공되지 않음" : String(remainingPlayers)} />
@@ -3971,6 +4248,25 @@ function buildCatalogItem(solution: SolutionListItem): SolutionCatalogItem {
   const effectiveStackBb = findEffectiveStack(spot);
   const treeConfig = deriveTreeConfig(solution);
   const strategyCount = solution.strategy ? Object.keys(solution.strategy).length : null;
+  const remainingPlayers = countRemainingPlayers(spot);
+  const actionTree = classifyActionTreeSpot({
+    source: solution.sourceLabel,
+    heroPosition: spot.heroPosition,
+    tableSize: spot.tableSize,
+    ...(remainingPlayers !== null ? { remainingPlayers } : {}),
+    ...(heroStackBb !== null ? { heroStackBb } : {}),
+    actionPath: spot.actionPath,
+    treeConfig,
+    ...(solution.fileName ? { sourceFile: solution.fileName } : {}),
+    canonicalKey: solution.canonicalKey,
+    sourceMetadata: {
+      databaseFeatures: solution.databaseFeatures,
+      fileName: solution.fileName,
+      fileHash: solution.fileHash,
+      externalId: solution.externalId
+    },
+    strategy: solution.strategy
+  });
   return {
     row: solution,
     heroPosition: spot.heroPosition ?? "",
@@ -3980,7 +4276,8 @@ function buildCatalogItem(solution: SolutionListItem): SolutionCatalogItem {
     treeConfig,
     strategyCount,
     sourceFile: solution.fileName ?? "",
-    canonicalKey: solution.canonicalKey
+    canonicalKey: solution.canonicalKey,
+    actionTree
   };
 }
 
@@ -4051,6 +4348,67 @@ function formatBrowserStrategyMode(mode: string): string {
   return mode;
 }
 
+function formatActionTreeSpotType(value: string): string {
+  const labels: Record<ActionTreeSpotType, string> = {
+    PUSH_FOLD: "Push/Fold",
+    RFI: "RFI / Open Raise",
+    LIMP: "Limp",
+    FACING_OPEN: "Facing Open",
+    FACING_LIMP: "Facing Limp",
+    THREE_BET: "3bet",
+    VS_THREE_BET: "vs 3bet",
+    UNKNOWN: "Unknown"
+  };
+  return isActionTreeSpotType(value) ? labels[value] : value;
+}
+
+function formatActionTreeNode(value: string): string {
+  const labels: Record<ActionTreeNode, string> = {
+    OPEN_SHOVE: "Open shove",
+    FIRST_IN: "First-in",
+    OPEN_RAISE: "Open raise",
+    OPEN_LIMP: "Open limp",
+    VS_OPEN: "Vs open",
+    VS_LIMP: "Vs limp",
+    THREE_BET: "3bet",
+    VS_THREE_BET: "Vs 3bet",
+    UNKNOWN: "Unknown"
+  };
+  return isActionTreeNode(value) ? labels[value] : value;
+}
+
+function formatActionTreeList(values: Array<string | ActionTreeActionKind>, separator = " / "): string {
+  return values.length > 0 ? values.join(separator) : "제공되지 않음";
+}
+
+function formatBrowserSpotTypeFilter(value: string): string {
+  return value === "ALL" ? "ALL" : formatActionTreeSpotType(value);
+}
+
+function formatBrowserActionNodeFilter(value: string): string {
+  return value === "ALL" ? "ALL" : formatActionTreeNode(value);
+}
+
+function buildBrowserNodeCandidateSummary(catalog: SolutionCatalogItem[]): BrowserNodeCandidateSummary {
+  const availableActions = Array.from(new Set(catalog.flatMap((item) => item.actionTree.availableActions))).sort((a, b) =>
+    a.localeCompare(b)
+  );
+  const availableSizes = uniqueSorted(catalog.flatMap((item) => item.actionTree.availableSizes));
+  return {
+    candidateCount: catalog.length,
+    availableActions,
+    availableSizes
+  };
+}
+
+function isActionTreeSpotType(value: string): value is ActionTreeSpotType {
+  return ["PUSH_FOLD", "RFI", "LIMP", "FACING_OPEN", "FACING_LIMP", "THREE_BET", "VS_THREE_BET", "UNKNOWN"].includes(value);
+}
+
+function isActionTreeNode(value: string): value is ActionTreeNode {
+  return ["OPEN_SHOVE", "FIRST_IN", "OPEN_RAISE", "OPEN_LIMP", "VS_OPEN", "VS_LIMP", "THREE_BET", "VS_THREE_BET", "UNKNOWN"].includes(value);
+}
+
 function deriveTreeConfig(solution: SolutionListItem): string {
   const features = solution.databaseFeatures;
   if (features?.spotFamily) {
@@ -4113,6 +4471,18 @@ function filterCatalog(catalog: SolutionCatalogItem[], filters: DatabaseFilters)
       return false;
     }
     if (typeof max === "number" && (typeof item.heroStackBb !== "number" || item.heroStackBb > max)) {
+      return false;
+    }
+    return true;
+  });
+}
+
+function filterBrowserCatalogByActionTree(catalog: SolutionCatalogItem[], spotTypeFilter: string, actionNodeFilter: string): SolutionCatalogItem[] {
+  return catalog.filter((item) => {
+    if (spotTypeFilter !== "ALL" && item.actionTree.spotType !== spotTypeFilter) {
+      return false;
+    }
+    if (actionNodeFilter !== "ALL" && item.actionTree.actionNode !== actionNodeFilter) {
       return false;
     }
     return true;

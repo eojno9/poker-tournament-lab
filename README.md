@@ -43,6 +43,93 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.1 Action Tree Browser
+
+v2.1은 v2.0 Solution Browser를 preflop action tree 탐색이 가능한 read-only Browser로 확장합니다. Browser는 DB에 저장된 solution만 기준으로 Push/Fold, RFI/Open Raise, Limp, Facing Open, Facing Limp, 3bet/vs 3bet 같은 spot/action node를 분류하고 표시합니다.
+
+새 solver 계산은 수행하지 않습니다. 신규 API, DB schema migration, 신규 import schema도 추가하지 않았습니다.
+
+### Action Tree Classifier
+
+Action Tree Classifier는 solution metadata, actionPath, treeConfig, sourceMetadata, strategy actions[]를 기반으로 read-only context를 만듭니다.
+
+출력 항목:
+
+- Spot Type
+- Action Node
+- Available Actions
+- Available Sizes
+- Breadcrumb
+- Warnings
+
+분류 신호가 부족하면 UNKNOWN과 warning으로 표시하며, 값을 임의 계산하거나 solver처럼 추정하지 않습니다.
+
+### Spot Type / Action Node Filters
+
+Browser Spot Selector에는 Spot Type filter와 Action Node filter가 추가되었습니다.
+
+- 필터 option은 실제 DB solution에 존재하는 값만 표시합니다.
+- 없는 spot을 추천하거나 생성하지 않습니다.
+- nearest recommendation은 수행하지 않습니다.
+- 필터 결과가 없으면 현재 적용된 필터와 함께 DB-only 안내를 표시합니다.
+
+### LIMP vs CALL
+
+LIMP와 CALL은 분리해 표시합니다.
+
+- LIMP: unopened/first-in pot에서 limp하는 액션
+- CALL: 이미 bet/raise가 있는 상황에서 따라가는 액션
+
+payload가 불명확하면 임의로 LIMP로 바꾸지 않고 warning으로 드러냅니다.
+
+### Breadcrumb / Node Context
+
+Browser 상단에는 Action Tree Breadcrumb이 표시됩니다. Strategy Matrix와 Hand Detail에도 현재 selected solution의 Spot Type / Action Node context가 함께 표시됩니다.
+
+Source / Metadata panel에도 Action Tree 관련 항목이 정리되어 표시됩니다.
+
+- Action Tree Spot Type
+- Action Tree Node
+- Action Tree Breadcrumb
+- Action Tree Available Actions
+- Action Tree Available Sizes
+- Action Tree Warnings
+
+### Node Candidate Summary / Filter Context
+
+Browser는 현재 Spot Type / Action Node 필터 기준으로 후보 정보를 보여줍니다.
+
+- Candidate Solutions
+- Current Node
+- Available Actions
+- Available Sizes
+- Filtered by
+
+Action / Size Filter Context는 현재 action kind filter와 size label filter가 selected solution의 실제 Browser v2 model과 action tree context에서 나온 값임을 보여줍니다.
+
+필터는 DB에 실제 존재하는 action/size만 기준으로 동작합니다. 필터 결과 없음, strategy 없음, model 없음 상태는 한국어 empty state로 안내합니다.
+
+### v2.1 Limits
+
+- 새 solver 없음
+- solver job generator 없음
+- DB schema migration 없음
+- 신규 API 없음
+- 신규 import schema 없음
+- 없는 spot 추천 없음
+- nearest recommendation 없음
+- GTO Wizard 전체 복제 아님
+- HRC Pro / ICMIZER급 계산 엔진 아님
+- read-only DB browser/action-tree classification 단계
+
+### Safety Scope
+
+- off-table only
+- RTA/live 기능 없음
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration 없음
+- Nash / approximate Nash 없음
+- PKO / bounty / postflop 없음
+
 ## v2.0 Solution Browser
 
 v2.0은 기존 Database Detail 안에 있던 Browser v2 탐색 경험을 별도 `Browser` 탭으로 승격한 read-only DB browser입니다. 목표는 GTO Wizard식으로 `spot 선택 -> 13x13 strategy matrix -> hand detail` 흐름을 한 화면에서 제공하는 것입니다.
