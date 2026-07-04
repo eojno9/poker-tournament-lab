@@ -2,13 +2,17 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
+  BookmarkPlus,
   Database,
+  Download,
   FileUp,
+  History,
   Loader2,
   Play,
   RefreshCw,
   Search,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Trash2
 } from "lucide-react";
 import {
   HAND_KEYS,
@@ -36,6 +40,7 @@ import {
 } from "./api.js";
 import { defaultSpot, sampleImportPayload } from "./sampleData.js";
 import {
+  analyzeFormStateFromSpot,
   buildAnalyzeRequestFromForm,
   defaultAnalyzeFormState,
   positionsForTableSize,
@@ -43,9 +48,35 @@ import {
   type AnalyzeFormState,
   type VillainPresetOption
 } from "./analyzeForm.js";
+import {
+  applyAnalyzePreset,
+  deleteAnalyzePreset,
+  loadAnalyzePresets,
+  saveAnalyzePreset,
+  type AnalyzePreset
+} from "./analyzePresets.js";
+import {
+  addRecentAnalysis,
+  buildRecentAnalysisSummary,
+  clearRecentAnalyses,
+  deleteRecentAnalysis,
+  loadRecentAnalyses,
+  type RecentAnalysisEntry
+} from "./recentAnalyses.js";
 
 type Tab = "analyze" | "import" | "database";
 type AnalyzeMode = "form" | "json";
+type PresetNoticeTone = "success" | "error";
+
+interface PresetNotice {
+  tone: PresetNoticeTone;
+  text: string;
+}
+
+interface AnalyzePrefillPayload {
+  id: string;
+  spot: SpotInput;
+}
 
 interface DatabaseFilters {
   heroPosition: string;
@@ -103,6 +134,15 @@ const initialAnalyzeRequest = buildAnalyzeRequestFromForm(initialFormState).requ
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>("analyze");
+  const [analyzePrefill, setAnalyzePrefill] = useState<AnalyzePrefillPayload | null>(null);
+
+  function moveToAnalyzeWithSpot(spot: SpotInput) {
+    setAnalyzePrefill({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      spot
+    });
+    setActiveTab("analyze");
+  }
 
   return (
     <main className="app-shell">
@@ -124,14 +164,16 @@ export function App() {
         </nav>
       </header>
 
-      {activeTab === "analyze" && <AnalyzeView />}
+      {activeTab === "analyze" && <AnalyzeView prefill={analyzePrefill} onConsumePrefill={() => setAnalyzePrefill(null)} />}
       {activeTab === "import" && <ImportView />}
-      {activeTab === "database" && <DatabaseView onGoImport={() => setActiveTab("import")} />}
+      {activeTab === "database" && (
+        <DatabaseView onGoImport={() => setActiveTab("import")} onFillAnalyze={(spot) => moveToAnalyzeWithSpot(spot)} />
+      )}
     </main>
   );
 }
 
-function AnalyzeView() {
+function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPayload | null; onConsumePrefill: () => void }) {
   const [mode, setMode] = useState<AnalyzeMode>("form");
   const [formState, setFormState] = useState<AnalyzeFormState>(initialFormState);
   const [jsonRequest, setJsonRequest] = useState(() => JSON.stringify(initialAnalyzeRequest, null, 2));
@@ -139,9 +181,43 @@ function AnalyzeView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [presetName, setPresetName] = useState("");
+  const [presetNotice, setPresetNotice] = useState<PresetNotice | null>(null);
+  const [presets, setPresets] = useState<AnalyzePreset[]>(() => loadAnalyzePresets());
+  const [recentAnalyses, setRecentAnalyses] = useState<RecentAnalysisEntry[]>(() => loadRecentAnalyses());
+  const [recentNotice, setRecentNotice] = useState<PresetNotice | null>(null);
+  const [formNotice, setFormNotice] = useState<PresetNotice | null>(null);
 
   const formBuildResult = useMemo(() => buildAnalyzeRequestFromForm(formState), [formState]);
   const heroPositionOptions = positionsForTableSize(formState.tableSize);
+
+  useEffect(() => {
+    if (!prefill) {
+      return;
+    }
+    const transformed = analyzeFormStateFromSpot(prefill.spot);
+    setFormState(transformed.formState);
+    const built = buildAnalyzeRequestFromForm(transformed.formState);
+    if (built.request) {
+      setJsonRequest(JSON.stringify(built.request, null, 2));
+    }
+    setMode("form");
+    setFormErrors([]);
+    setError(null);
+    setResult(null);
+    if (transformed.warnings.length > 0) {
+      setFormNotice({
+        tone: "error",
+        text: `Database spot을 불러왔습니다. 일부 값을 확인해 주세요. (${transformed.warnings[0]})`
+      });
+    } else {
+      setFormNotice({
+        tone: "success",
+        text: "Database spot을 Analyze 폼에 채웠습니다. Analyze 실행은 직접 눌러주세요."
+      });
+    }
+    onConsumePrefill();
+  }, [prefill, onConsumePrefill]);
 
   function setTableSize(nextTableSize: number) {
     setFormState((previous) => {
@@ -212,6 +288,84 @@ function AnalyzeView() {
     setFormErrors([]);
     setError(null);
     setResult(null);
+    setPresetNotice(null);
+    setRecentNotice(null);
+    setFormNotice(null);
+  }
+
+  function onSavePreset() {
+    const trimmedName = presetName.trim();
+    if (!trimmedName) {
+      setPresetNotice({ tone: "error", text: "프리셋 이름을 입력해 주세요." });
+      return;
+    }
+    try {
+      saveAnalyzePreset({ name: trimmedName, formState });
+      setPresets(loadAnalyzePresets());
+      setPresetNotice({ tone: "success", text: `프리셋 "${trimmedName}"을 저장했습니다.` });
+      setPresetName("");
+    } catch {
+      setPresetNotice({ tone: "error", text: "프리셋 저장에 실패했습니다." });
+    }
+  }
+
+  function onDeletePreset(id: string) {
+    try {
+      const next = deleteAnalyzePreset(id);
+      setPresets(next);
+      setPresetNotice({ tone: "success", text: "프리셋을 삭제했습니다." });
+    } catch {
+      setPresetNotice({ tone: "error", text: "프리셋 삭제에 실패했습니다." });
+    }
+  }
+
+  function onApplyPreset(id: string) {
+    try {
+      const preset = applyAnalyzePreset(id);
+      if (!preset) {
+        setPresetNotice({ tone: "error", text: "선택한 프리셋을 찾을 수 없습니다." });
+        return;
+      }
+      setFormState(preset.formState);
+      const buildResult = buildAnalyzeRequestFromForm(preset.formState);
+      if (buildResult.request) {
+        setJsonRequest(JSON.stringify(buildResult.request, null, 2));
+      }
+      setFormErrors([]);
+      setError(null);
+      setResult(null);
+      setMode("form");
+      setPresetNotice({ tone: "success", text: `프리셋 "${preset.name}"을 불러왔습니다.` });
+      setFormNotice(null);
+    } catch {
+      setPresetNotice({ tone: "error", text: "프리셋 불러오기에 실패했습니다." });
+    }
+  }
+
+  function onApplyRecent(entry: RecentAnalysisEntry) {
+    setFormState(entry.formState);
+    const buildResult = buildAnalyzeRequestFromForm(entry.formState);
+    if (buildResult.request) {
+      setJsonRequest(JSON.stringify(buildResult.request, null, 2));
+    }
+    setFormErrors([]);
+    setError(null);
+    setResult(null);
+    setMode("form");
+    setRecentNotice({ tone: "success", text: "최근 분석 입력값을 불러왔습니다. Analyze 실행은 직접 눌러주세요." });
+    setFormNotice(null);
+  }
+
+  function onDeleteRecent(id: string) {
+    const next = deleteRecentAnalysis(id);
+    setRecentAnalyses(next);
+    setRecentNotice({ tone: "success", text: "최근 분석 기록을 삭제했습니다." });
+  }
+
+  function onClearRecent() {
+    clearRecentAnalyses();
+    setRecentAnalyses([]);
+    setRecentNotice({ tone: "success", text: "최근 분석 기록을 모두 삭제했습니다." });
   }
 
   async function runAnalyze() {
@@ -238,6 +392,20 @@ function AnalyzeView() {
 
       const response = await analyzeSpot(request);
       setResult(response);
+      const nextRecent = addRecentAnalysis({
+        formState,
+        source: response.source,
+        sourceLabel: response.sourceLabel,
+        summary: buildRecentAnalysisSummary(formState, response),
+        metadata: {
+          ...(response.canonicalKey ? { canonicalKey: response.canonicalKey } : {}),
+          ...(response.fallbackMetadata?.modelVersion ? { modelVersion: response.fallbackMetadata.modelVersion } : {}),
+          ...(response.missingRequirements?.length ? { missingRequirements: response.missingRequirements } : {})
+        }
+      });
+      setRecentAnalyses(nextRecent);
+      setRecentNotice(null);
+      setFormNotice(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "분석 요청에 실패했습니다.");
     } finally {
@@ -273,6 +441,113 @@ function AnalyzeView() {
 
         {mode === "form" ? (
           <>
+            <div className="editor-block">
+              <h3>Analyze 프리셋</h3>
+              <div className="preset-toolbar">
+                <label>
+                  프리셋 이름
+                  <input
+                    aria-label="preset name"
+                    placeholder="예: 6max BTN 18bb open shove"
+                    value={presetName}
+                    onChange={(event) => setPresetName(event.target.value)}
+                  />
+                </label>
+                <button className="primary-action" data-testid="preset-save-button" onClick={onSavePreset} type="button">
+                  <BookmarkPlus size={16} />
+                  현재 입력을 프리셋으로 저장
+                </button>
+              </div>
+
+              {presetNotice && (
+                <div className={`notice ${presetNotice.tone === "success" ? "success" : ""}`}>
+                  <p>{presetNotice.text}</p>
+                </div>
+              )}
+
+              {presets.length === 0 ? (
+                <p className="muted">저장된 프리셋이 없습니다.</p>
+              ) : (
+                <div className="preset-list" data-testid="analyze-preset-list">
+                  {presets.map((preset) => (
+                    <div className="preset-row" key={preset.id}>
+                      <div className="preset-summary">
+                        <strong>{preset.name}</strong>
+                        <span>updated {new Date(preset.updatedAt).toLocaleString("ko-KR")}</span>
+                      </div>
+                      <div className="preset-actions">
+                        <button className="preset-action" onClick={() => onApplyPreset(preset.id)} type="button">
+                          <Download size={14} />
+                          불러오기
+                        </button>
+                        <button className="preset-action danger" onClick={() => onDeletePreset(preset.id)} type="button">
+                          <Trash2 size={14} />
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="editor-block">
+              <div className="panel-title">
+                <History size={16} />
+                <h3>최근 분석</h3>
+                {recentAnalyses.length > 0 ? (
+                  <button className="preset-action danger" onClick={onClearRecent} type="button">
+                    <Trash2 size={14} />
+                    전체 삭제
+                  </button>
+                ) : null}
+              </div>
+
+              {recentNotice && (
+                <div className={`notice ${recentNotice.tone === "success" ? "success" : ""}`}>
+                  <p>{recentNotice.text}</p>
+                </div>
+              )}
+
+              {recentAnalyses.length === 0 ? (
+                <p className="muted" data-testid="recent-analyses-empty">
+                  최근 분석 기록이 없습니다.
+                </p>
+              ) : (
+                <div className="recent-list" data-testid="recent-analyses-list">
+                  {recentAnalyses.map((entry) => (
+                    <div className="recent-row" key={entry.id}>
+                      <div className="recent-summary">
+                        <strong>{entry.summary.heroPosition} / {entry.summary.tableSize}명</strong>
+                        <span>
+                          Hero {typeof entry.summary.heroStackBb === "number" ? `${entry.summary.heroStackBb.toFixed(1)}BB` : "N/A"} ·{" "}
+                          {entry.summary.treeConfig}
+                        </span>
+                        <span>
+                          {entry.source} · {new Date(entry.createdAt).toLocaleString("ko-KR")}
+                        </span>
+                        <span className="muted">
+                          {entry.metadata.canonicalKey ? `key: ${entry.metadata.canonicalKey}` : "canonical key 없음"}
+                          {entry.metadata.modelVersion ? ` · model: ${entry.metadata.modelVersion}` : ""}
+                          {entry.metadata.missingRequirements?.length ? ` · missing: ${entry.metadata.missingRequirements.length}` : ""}
+                        </span>
+                      </div>
+                      <div className="recent-actions">
+                        <button className="preset-action" onClick={() => onApplyRecent(entry)} type="button">
+                          <Download size={14} />
+                          불러오기
+                        </button>
+                        <button className="preset-action danger" onClick={() => onDeleteRecent(entry.id)} type="button">
+                          <Trash2 size={14} />
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="form-grid">
               <label>
                 Game type
@@ -392,6 +667,7 @@ function AnalyzeView() {
 
             <div className="editor-block">
               <h3>Players (stack BB / villain preset)</h3>
+              <p className="muted">stack BB는 0보다 큰 숫자로 입력하세요. Hero가 아닌 자리에서 range preset/call %를 조정할 수 있습니다.</p>
               <div className="player-table">
                 <span>Seat</span>
                 <span>Pos</span>
@@ -419,6 +695,7 @@ function AnalyzeView() {
 
             <div className="editor-block">
               <h3>Payouts</h3>
+              <p className="muted">남은 인원 수와 같은 개수로 입력하세요. 미지급 순위는 0으로 입력합니다.</p>
               <label>
                 예: 1000, 700, 500, 350, 0, 0
                 <textarea
@@ -443,11 +720,20 @@ function AnalyzeView() {
             ))}
           </div>
         )}
+        {formNotice && (
+          <div className={`notice ${formNotice.tone === "success" ? "success" : ""}`}>
+            <p>{formNotice.text}</p>
+          </div>
+        )}
 
         <div className="search-line">
-          <button className="primary-action" onClick={runAnalyze} type="button" disabled={loading}>
+          <button className="primary-action" data-testid="analyze-run-button" onClick={runAnalyze} type="button" disabled={loading}>
             {loading ? <Loader2 className="spin" size={18} /> : <Play size={18} />}
             Analyze 실행
+          </button>
+          <button className="preset-action" onClick={resetAnalyzeInput} type="button">
+            <RefreshCw size={16} />
+            샘플로 초기화
           </button>
           <button className="icon-button" onClick={resetAnalyzeInput} type="button" title="입력 초기화">
             <RefreshCw size={16} />
@@ -1007,7 +1293,7 @@ function ReportImportDetails({ summary }: { summary: ImportReportSummary }) {
   );
 }
 
-function DatabaseView({ onGoImport }: { onGoImport: () => void }) {
+function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; onFillAnalyze: (spot: SpotInput) => void }) {
   const [imports, setImports] = useState<ImportResponse["import"][]>([]);
   const [solutions, setSolutions] = useState<SolutionListItem[]>([]);
   const [filters, setFilters] = useState<DatabaseFilters>(defaultDatabaseFilters);
@@ -1229,6 +1515,15 @@ function DatabaseView({ onGoImport }: { onGoImport: () => void }) {
             <div className="result-block">
               <h3>Canonical Key</h3>
               <code>{selected.canonicalKey}</code>
+              <button
+                className="preset-action"
+                type="button"
+                onClick={() => onFillAnalyze(selected.row.spot)}
+                data-testid="db-fill-analyze-button"
+              >
+                <Download size={14} />
+                이 spot으로 Analyze 채우기
+              </button>
             </div>
 
             <div className="detail-grid">

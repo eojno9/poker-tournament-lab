@@ -1,34 +1,54 @@
 # poker-tournament-lab
 
-`poker-tournament-lab`은 오프테이블 학습용 포커 토너먼트 분석 로컬 웹앱입니다.
+오프테이블 포커 토너먼트 학습용 분석 도구입니다.  
+v1.2는 계산 엔진 추가 없이 사용성(입력/탐색/재사용) 개선에 집중했습니다.
 
-## v1.1 개요
+## v1.2 변경사항
 
-- `HRC_PRECOMPUTED_DB`: import된 HRC 데이터에서 **exact canonical key 매칭** 결과를 반환합니다.
-- `FALLBACK_ICM`: exact 매칭이 없고 fallback 입력이 완전할 때, **ICM EV 평가**를 반환합니다.
-- `NOT_SOLVED`: exact 매칭이 없고 fallback 입력도 불완전하면 반환합니다. 추측/휴리스틱 추천은 하지 않습니다.
-- 지원 범위: regular NLHE tournament push/fold 학습.
-- 비지원 범위: PKO, bounty, satellite 특수 로직, Nash solver, nearest match 추천, postflop solver, OCR, overlay, hotkey, live watcher, RTA/live assistance.
+- Analyze Presets 추가
+  - 현재 Analyze form 입력값을 프리셋으로 저장/불러오기/삭제
+- Recent Analyses 추가
+  - Analyze 실행 결과를 최근 20개까지 저장/재사용/삭제
+- Database -> Analyze 연동
+  - Database Detail의 spot을 Analyze form에 채우기
+- Analyze Form validation UX 개선
+  - 잘못된 입력을 한국어 메시지로 분석 실행 전에 안내
 
-## 실행 방법 (Windows PowerShell)
+중요:
+- Preset/Recent/Database->Analyze는 **폼만 채웁니다**.
+- 자동 Analyze 실행은 하지 않습니다. 사용자가 `Analyze 실행`을 직접 눌러야 합니다.
+- DB/API/fallback 계산 로직은 v1.1과 동일하게 유지됩니다.
 
-이 워크스페이스에서는 `npm.ps1` 대신 `npm.cmd`를 사용합니다.
+## Source Enum
+
+- `HRC_PRECOMPUTED_DB`
+  - HRC 사전 계산 DB exact canonical key 매칭
+- `FALLBACK_ICM`
+  - exact 매칭 실패 시, fallback 입력 완비 조건에서 ICM EV 평가
+  - Nash solver 결과가 아님
+- `NOT_SOLVED`
+  - exact 매칭도 없고 fallback 입력도 불완전한 상태
+  - 추측/heuristic 추천 없음
+
+## 실행 방법 (Windows)
+
+PowerShell 환경에서는 `npm.ps1` 대신 `npm.cmd` 사용:
 
 ```powershell
 npm.cmd install
 npm.cmd run dev
 ```
 
-- API + Web 개발 서버가 함께 실행됩니다.
-- 기본 접속: `http://127.0.0.1:5173`
+기본 주소:
+- `http://127.0.0.1:5173`
 
-원클릭 실행(Windows):
+원클릭 실행:
 
 ```powershell
 .\run-all.cmd
 ```
 
-## 검증/빌드 명령
+## 검증 명령
 
 ```powershell
 npm.cmd run test
@@ -36,7 +56,7 @@ npm.cmd run build
 npm.cmd run test:smoke
 ```
 
-Playwright 최초 1회 브라우저 설치:
+Playwright 최초 설치:
 
 ```powershell
 npm.cmd exec playwright install chromium
@@ -44,75 +64,58 @@ npm.cmd exec playwright install chromium
 
 ## 화면별 사용 가이드
 
-## 1) Import 화면
+### 1) Analyze
 
-1. `format(json/csv)`, `source label`, `file name`, `content`를 입력하거나 파일을 업로드합니다.
-2. `Import 저장`을 실행합니다.
-3. 저장 후 Import 리포트 요약 카드에서 최신 결과를 확인합니다.
+- 폼 입력 또는 고급 JSON 입력으로 `/api/analyze` 요청
+- 주요 입력:
+  - remaining players(2~10)
+  - hero seat/position
+  - blinds/ante/pot
+  - stacks
+  - payouts
+  - action path
+  - villain range preset
 
-## 2) Analyze 화면 (Form 모드)
+### 2) Analyze Presets
 
-1. 남은 인원(2~10), hero position, blind/ante, 스택, payout, action path를 입력합니다.
-2. villain calling range preset(`tight/standard/loose/custom`)을 설정합니다.
-3. `Analyze 실행`을 누르면 `/api/analyze` 요청이 실행됩니다.
-4. 필요하면 `고급 JSON 입력` 모드에서 요청 payload를 직접 편집할 수 있습니다.
+- `프리셋 이름` 입력 후 `현재 입력을 프리셋으로 저장`
+- 저장된 프리셋에서 `불러오기` / `삭제`
+- 같은 이름 프리셋 중복 저장 허용
 
-## 3) Database 화면
+### 3) Recent Analyses
 
-- import된 solution 목록/상세를 조회할 수 있습니다.
-- hero position, table size, stack range, tree config, source file, canonical key로 필터링할 수 있습니다.
-- detail 패널에서 canonical key, spot 요약, source metadata, strategy matrix를 확인합니다.
+- Analyze 실행 후 결과 source와 요약 정보가 최근 기록에 저장
+- 목록에서 `불러오기` 시 formState만 채움
+- 개별 삭제 및 전체 삭제 지원
 
-## Result source enum 설명
+### 4) Database
 
-- `HRC_PRECOMPUTED_DB`
-  - HRC 사전 계산 DB 정확 매칭 결과
-  - exact canonical key 일치 시에만 사용
-- `FALLBACK_ICM`
-  - fallback ICM EV 평가 결과
-  - Nash solver 결과가 아님
-  - villain range 가정 입력 기반
-- `NOT_SOLVED`
-  - DB exact 매칭 없음 + fallback 입력 미충족
-  - missing requirements를 안내
+- import된 solution 목록 탐색/필터/상세 보기
+- Detail 패널에서 `이 spot으로 Analyze 채우기` 실행 가능
+- Analyze 탭으로 이동하여 해당 spot 기반 formState를 채움 (자동 실행 없음)
 
-## Import 리포트 해석
+### 5) Import
 
-최신 리포트 파일:
+- 최신 리포트 요약 확인:
+  - `latest-import-report.json`
+  - `latest-verification-report.json`
+  - `latest-canonical-key-report.json`
 
-- `artifacts/latest-import-report.json`
-- `artifacts/latest-verification-report.json`
-- `artifacts/latest-canonical-key-report.json`
+## localStorage 키
 
-Import 화면 요약 카드에서 확인할 항목:
+- Analyze Presets:
+  - `poker-tournament-lab:analyze-presets:v1`
+- Recent Analyses:
+  - `poker-tournament-lab:recent-analyses:v1`
 
-- import report
-  - imported files / skipped files / discarded hrcz files
-  - imported records / failed records / warnings
-  - skipped 사유, discarded 목록
-- verification report
-  - exact lookup 성공률
-  - random lookup 성공률
-  - duplicate canonical key count
-  - near-match HRC 오탐 수
-- canonical key report
-  - mismatch count / updated count / collision count / invalid count
+손상된 localStorage 데이터는 안전하게 빈 상태로 처리합니다.
 
-상태 배지:
+## 제한 사항 / 비범위
 
-- `정상`
-- `주의 필요`
-- `실패 있음`
-- `검증 리포트 없음`
-
-## fallback ICM 한계
-
-- fallback은 Nash equilibrium solver가 아닙니다.
-- 입력된 villain calling range preset/override 가정에 따라 EV를 평가합니다.
-- 결과 해석 시 assumptions / limitations를 반드시 함께 확인하세요.
-
-## 정책 메모
-
-- `.hrcz` 파일은 import 대상에서 제외(discard)됩니다.
-- exact match 정책은 nearest/유사 매칭을 허용하지 않습니다.
-- 본 프로젝트는 학습/분석용 오프테이블 도구이며, 실시간 플레이 보조 기능(RTA/live)은 포함하지 않습니다.
+- v1.2도 학습/리뷰용 도구이며, 실시간 보조(RTA/live) 기능은 제공하지 않습니다.
+- 다음 기능은 범위 외:
+  - nearest match recommendation
+  - Nash approximation
+  - PKO/bounty/satellite 특수 로직
+  - postflop solver
+  - OCR/screen capture/overlay/hotkey/live watcher

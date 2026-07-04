@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildAnalyzeRequestFromForm, defaultAnalyzeFormState } from "../src/analyzeForm.js";
+import { analyzeFormStateFromSpot, buildAnalyzeRequestFromForm, defaultAnalyzeFormState } from "../src/analyzeForm.js";
 import { defaultSpot } from "../src/sampleData.js";
 
 test("builds a valid 6max BTN shove/fold request", () => {
@@ -84,4 +84,38 @@ test("keeps custom villain preset as callRangePct override without preset", () =
     seat: 3,
     callRangePct: 12.5
   });
+});
+
+test("converts spot JSON into analyze form state", () => {
+  const result = analyzeFormStateFromSpot(defaultSpot);
+
+  assert.equal(result.formState.tableSize, defaultSpot.tableSize);
+  assert.equal(result.formState.heroSeat, defaultSpot.heroSeat);
+  assert.equal(result.formState.heroPosition, defaultSpot.heroPosition);
+  assert.equal(result.formState.payoutsText, defaultSpot.payouts.join(", "));
+  assert.equal(result.formState.actionPathText, defaultSpot.actionPath.join(", "));
+  assert.equal(result.formState.players.length, defaultSpot.tableSize);
+});
+
+test("returns korean validation errors for invalid form values", () => {
+  const state = defaultAnalyzeFormState(defaultSpot);
+  state.tableSize = 11;
+  state.blinds.smallBb = Number.NaN;
+  state.blinds.bigBb = 0;
+  state.blinds.anteBb = Number.NaN;
+  state.players[0] = { ...state.players[0], stackBb: 0 };
+  state.payoutsText = "1000, abc, , 0";
+  state.actionPathText = " ";
+
+  const { request, errors } = buildAnalyzeRequestFromForm(state);
+
+  assert.equal(request, null);
+  assert.ok(errors.some((item) => item.includes("remaining players는 2~10")));
+  assert.ok(errors.some((item) => item.includes("small blind")));
+  assert.ok(errors.some((item) => item.includes("big blind")));
+  assert.ok(errors.some((item) => item.includes("ante")));
+  assert.ok(errors.some((item) => item.includes("action path")));
+  assert.ok(errors.some((item) => item.includes("payout에 숫자가 아닌 값")));
+  assert.ok(errors.some((item) => item.includes("payout에 빈 값")));
+  assert.ok(errors.some((item) => item.includes("stackBB")));
 });

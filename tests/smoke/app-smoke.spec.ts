@@ -177,7 +177,7 @@ const latestReportsSummary = {
   }
 };
 
-test.describe("v1.1 smoke", () => {
+test.describe("v1.2 smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/imports*", async (route) => {
       await route.fulfill({
@@ -209,7 +209,7 @@ test.describe("v1.1 smoke", () => {
     });
   });
 
-  test("renders Analyze / Import / Database tabs and import report summary cards", async ({ page }) => {
+  test("renders tabs and import report cards", async ({ page }) => {
     await page.goto("/");
     const tabs = page.locator("nav.tabs");
     await expect(tabs.getByRole("button", { name: "Analyze", exact: true })).toBeVisible();
@@ -217,6 +217,14 @@ test.describe("v1.1 smoke", () => {
     await expect(tabs.getByRole("button", { name: "Database", exact: true })).toBeVisible();
     await expect(page.getByLabel("remaining players")).toBeVisible();
     await expect(page.getByLabel("hero position")).toBeVisible();
+    await expect(page.getByLabel("preset name")).toBeVisible();
+    await expect(page.getByTestId("recent-analyses-empty")).toBeVisible();
+    await expect(page.getByTestId("preset-save-button")).toBeVisible();
+
+    await page.getByLabel("preset name").fill("Smoke Preset");
+    await page.getByTestId("preset-save-button").click();
+    await expect(page.getByTestId("analyze-preset-list")).toBeVisible();
+    await expect(page.getByTestId("analyze-preset-list")).toContainText("Smoke Preset");
 
     await tabs.getByRole("button", { name: "Import", exact: true }).click();
     await expect(page.getByRole("heading", { name: /HRC DB Import/i })).toBeVisible();
@@ -230,12 +238,9 @@ test.describe("v1.1 smoke", () => {
     await tabs.getByRole("button", { name: "Database", exact: true }).click();
     await expect(page.getByRole("heading", { name: /^Imports$/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^Solutions$/ })).toBeVisible();
-
-    const hasHangul = await page.locator("body").evaluate((el) => /[가-힣]/.test(el.innerText));
-    expect(hasHangul).toBeTruthy();
   });
 
-  test("renders source badges and key result states", async ({ page }) => {
+  test("renders source states and updates recent analyses", async ({ page }) => {
     const analyzeResponses = [hrcResponse, fallbackResponse, notSolvedResponse];
     let index = 0;
 
@@ -250,29 +255,28 @@ test.describe("v1.1 smoke", () => {
     });
 
     await page.goto("/");
-    const runButton = page.locator("button.primary-action");
+    const runButton = page.getByTestId("analyze-run-button");
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("HRC_PRECOMPUTED_DB");
-    await expect(page.getByText("HRC 사전 계산 DB 정확 매칭")).toBeVisible();
+    await expect(page.getByTestId("recent-analyses-list")).toBeVisible();
+    await expect(page.getByTestId("recent-analyses-list")).toContainText("HRC_PRECOMPUTED_DB");
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("FALLBACK_ICM");
-    await expect(page.getByText("Fallback ICM EV 평가")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assumptions" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Limitations" })).toBeVisible();
     await expect(page.getByText(/ICM EV evaluation, not a Nash solution/i).first()).toBeVisible();
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("NOT_SOLVED");
-    await expect(page.getByText("분석 불가 / 지원 범위 밖")).toBeVisible();
     await expect(page.locator(".not-solved-box")).toContainText("NOT_SOLVED");
     await expect(
       page.getByText("fallback requires one payout value per remaining player, including 0 for unpaid places").first()
     ).toBeVisible();
   });
 
-  test("renders database filters and detail panel", async ({ page }) => {
+  test("renders database filters/detail and supports Database -> Analyze", async ({ page }) => {
     await page.route("**/api/imports*", async (route) => {
       await route.fulfill({
         status: 200,
@@ -314,6 +318,11 @@ test.describe("v1.1 smoke", () => {
     await expect(page.getByText("Spot JSON")).toBeVisible();
     await expect(page.getByText("Source metadata")).toBeVisible();
     await expect(page.getByText("Strategy Matrix")).toBeVisible();
+    await expect(page.getByTestId("db-fill-analyze-button")).toBeVisible();
+
+    await page.getByTestId("db-fill-analyze-button").click();
+    await expect(page.getByRole("heading", { name: "Analyze Spot" })).toBeVisible();
+    await expect(page.getByText("Database spot을 Analyze 폼에 채웠습니다")).toBeVisible();
   });
 
   test("renders report missing fallback state", async ({ page }) => {

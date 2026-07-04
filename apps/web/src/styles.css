@@ -149,6 +149,10 @@ h3 {
   margin-left: auto;
 }
 
+.panel-title .preset-action {
+  margin-left: auto;
+}
+
 .form-grid,
 .payout-grid {
   display: grid;
@@ -195,6 +199,95 @@ textarea.compact-textarea {
 .editor-block {
   display: grid;
   gap: 8px;
+}
+
+.preset-toolbar {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.preset-list {
+  display: grid;
+  gap: 8px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fbfcfe;
+}
+
+.preset-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.preset-summary span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.preset-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.recent-list {
+  display: grid;
+  gap: 8px;
+}
+
+.recent-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: #fbfcfe;
+}
+
+.recent-summary {
+  display: grid;
+  gap: 2px;
+}
+
+.recent-summary span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.recent-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.preset-action {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #c8d3e0;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #1e2f45;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.preset-action.danger {
+  border-color: #efb5b5;
+  color: #8d1f1f;
+  background: #fff6f6;
 }
 
 .player-table {
@@ -756,6 +849,28 @@ textarea.compact-textarea {
   .player-table {
     grid-template-columns: 34px 64px 70px 34px 40px minmax(120px, 1fr);
     gap: 5px;
+  }
+
+  .preset-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recent-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .preset-actions {
+    justify-content: flex-end;
+  }
+
+  .recent-actions {
+    justify-content: flex-end;
   }
 
   .solution-card {
