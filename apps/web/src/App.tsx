@@ -117,6 +117,7 @@ import {
 } from "./analyzeActionSizingSelector.js";
 import { buildDatabaseActionSizingSummary } from "./databaseActionSizingSummary.js";
 import { buildMultiActionFromAnalyzeResult, buildMultiActionFromSolution } from "./multiActionAdapter.js";
+import { buildBrowserV2Model, type BrowserV2ActionView, type BrowserV2EvMode, type BrowserV2HandCell } from "./browserV2Model.js";
 
 type Tab = "analyze" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
@@ -2781,6 +2782,8 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             )}
 
             <DatabaseMultiActionPreviewBlock row={selected.row} />
+
+            <DatabaseBrowserV2Block row={selected.row} />
           </>
         )}
       </div>
@@ -2930,6 +2933,239 @@ function DatabaseMultiActionPreviewBlock({ row }: { row: SolutionListItem }) {
       )}
     </div>
   );
+}
+
+function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
+  const [selectedActionKind, setSelectedActionKind] = useState("ALL");
+  const [selectedSizeLabel, setSelectedSizeLabel] = useState("ALL");
+  const [selectedEvMode, setSelectedEvMode] = useState<BrowserV2EvMode>("EV");
+  const [selectedHand, setSelectedHand] = useState<string | null>(null);
+  const model = useMemo(() => {
+    try {
+      return buildBrowserV2Model(row.strategy);
+    } catch {
+      return null;
+    }
+  }, [row.strategy]);
+  const filteredHands = useMemo(
+    () => filterBrowserV2Hands(model?.hands ?? [], selectedActionKind, selectedSizeLabel),
+    [model, selectedActionKind, selectedSizeLabel]
+  );
+  const previewHands = filteredHands.slice(0, 24);
+  const detailHand = filteredHands.find((hand) => hand.hand.hand === selectedHand) ?? previewHands[0] ?? null;
+  const actionKindOptions = model ? ["ALL", ...model.availableActionKinds] : ["ALL"];
+  const sizeLabelOptions = model ? ["ALL", ...model.availableSizeLabels] : ["ALL"];
+  const modeLabel = model?.strategyMode === "multi-action-v2"
+    ? "v2 원본 actions[]"
+    : model?.strategyMode === "legacy-adapter"
+      ? "v1 legacy 변환"
+      : model?.strategyMode === "mixed"
+        ? "v2 + legacy 혼합"
+        : "제공되지 않음";
+
+  useEffect(() => {
+    if (!previewHands.some((hand) => hand.hand.hand === selectedHand)) {
+      setSelectedHand(previewHands[0]?.hand.hand ?? null);
+    }
+  }, [previewHands, selectedHand]);
+
+  return (
+    <div className="result-block" data-testid="db-browser-v2">
+      <h3>Browser v2 · Action Frequency Matrix</h3>
+      <div className="notice">
+        <p>v2 strategy는 저장된 actions[]를 직접 표시합니다.</p>
+        <p>v1 legacy strategy는 Browser v2 view model로 변환해 표시합니다.</p>
+        <p>이 화면은 read-only 탐색용이며 solver 계산을 새로 수행하지 않습니다.</p>
+        <p>필터는 DB에 존재하는 action/size만 기준으로 동작합니다.</p>
+      </div>
+
+      {!model ? (
+        <p className="muted">Browser v2 view model을 생성할 수 없습니다.</p>
+      ) : (
+        <>
+          <div className="browser-v2-controls" data-testid="db-browser-v2-controls">
+            <label>
+              Action kind filter
+              <select aria-label="browser v2 action kind filter" value={selectedActionKind} onChange={(event) => setSelectedActionKind(event.target.value)}>
+                {actionKindOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Size filter
+              <select aria-label="browser v2 size filter" value={selectedSizeLabel} onChange={(event) => setSelectedSizeLabel(event.target.value)}>
+                {sizeLabelOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              EV display mode
+              <select aria-label="browser v2 EV display mode" value={selectedEvMode} onChange={(event) => setSelectedEvMode(parseBrowserV2EvMode(event.target.value))}>
+                <option value="EV">EV</option>
+                <option value="CHIP_EV">ChipEV</option>
+                <option value="ICM_EV">ICM EV</option>
+              </select>
+            </label>
+          </div>
+
+          <div className="detail-grid">
+            <ResultDetailItem label="strategy mode" value={modeLabel} />
+            <ResultDetailItem label="hands" value={String(model.handCount)} />
+            <ResultDetailItem label="actions" value={String(model.totalActionCount)} />
+            <ResultDetailItem label="mixed hands" value={String(model.mixedHandCount)} />
+            <ResultDetailItem label="action kinds" value={model.availableActionKinds.join(", ") || "제공되지 않음"} />
+            <ResultDetailItem label="size labels" value={model.availableSizeLabels.join(", ") || "제공되지 않음"} />
+            <ResultDetailItem label="filtered hands" value={String(filteredHands.length)} />
+            <ResultDetailItem label="EV display mode" value={browserV2EvModeLabel(selectedEvMode)} />
+          </div>
+
+          {previewHands.length === 0 ? (
+            <p className="muted">현재 action/size filter에 맞는 Browser v2 hand/action 데이터가 제공되지 않음</p>
+          ) : (
+            <>
+              <div className="browser-v2-matrix" aria-label="browser v2 action frequency matrix">
+                {previewHands.map((hand) => (
+                  <button
+                    aria-label={`Browser v2 hand ${hand.hand.hand}`}
+                    className={`browser-v2-cell ${hand.actions.length > 1 ? "mixed" : ""} ${detailHand?.hand.hand === hand.hand.hand ? "selected" : ""}`}
+                    key={hand.hand.hand}
+                    onClick={() => setSelectedHand(hand.hand.hand)}
+                    type="button"
+                  >
+                    <strong>{hand.hand.hand}</strong>
+                    <span>{formatBrowserV2HandLine(hand.actions, selectedEvMode)}</span>
+                    <small>{hand.actions.length > 1 ? "mixed" : getBrowserV2PrimaryAction(hand.actions)?.actionLabel ?? "UNKNOWN"}</small>
+                  </button>
+                ))}
+              </div>
+
+              <div className="browser-v2-detail" data-testid="db-browser-v2-hand-detail">
+                <h4>Hand detail preview</h4>
+                {detailHand ? (
+                  <>
+                    <div className="detail-grid">
+                      <ResultDetailItem label="hand" value={detailHand.hand.hand} />
+                      <ResultDetailItem label="primary action" value={getBrowserV2PrimaryAction(detailHand.actions)?.actionLabel ?? "UNKNOWN"} />
+                      <ResultDetailItem label="primary frequency" value={formatActionFrequency(getBrowserV2PrimaryAction(detailHand.actions)?.frequency ?? null)} />
+                      <ResultDetailItem label="selected EV mode" value={browserV2EvModeLabel(selectedEvMode)} />
+                    </div>
+                    <div className="range-table" role="table" aria-label="browser v2 hand detail table">
+                      <div className="range-row range-head browser-v2-row" role="row">
+                        <span>action</span>
+                        <span>size</span>
+                        <span>frequency</span>
+                        <span>selected EV</span>
+                        <span>ChipEV</span>
+                        <span>ICM EV</span>
+                        <span>warnings</span>
+                      </div>
+                      {detailHand.actions.map((action, actionIndex) => (
+                        <div className="range-row browser-v2-row" role="row" key={`${detailHand.hand.hand}-${action.action}-${actionIndex}`}>
+                          <span>{action.actionLabel}</span>
+                          <span>{formatBrowserV2ActionSizeLabel(action)}</span>
+                          <span>{formatActionFrequency(action.frequency)}</span>
+                          <span>{formatBrowserV2SelectedEv(action, selectedEvMode)}</span>
+                          <span>{formatActionEv(action.chipEv)}</span>
+                          <span>{formatActionEv(action.icmEv)}</span>
+                          <span>{formatBrowserV2Warnings(action.warnings)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted">Hand detail이 제공되지 않음</p>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+interface FilteredBrowserV2Hand {
+  hand: BrowserV2HandCell;
+  actions: BrowserV2ActionView[];
+}
+
+function filterBrowserV2Hands(hands: BrowserV2HandCell[], actionKind: string, sizeLabel: string): FilteredBrowserV2Hand[] {
+  return hands
+    .map((hand) => ({
+      hand,
+      actions: hand.actions.filter((action) =>
+        (actionKind === "ALL" || action.action === actionKind) &&
+        (sizeLabel === "ALL" || action.sizeGroupLabel === sizeLabel)
+      )
+    }))
+    .filter((hand) => hand.actions.length > 0);
+}
+
+function formatBrowserV2HandLine(actions: BrowserV2ActionView[], evMode: BrowserV2EvMode): string {
+  if (actions.length === 0) {
+    return "제공되지 않음";
+  }
+  return actions
+    .map((action) => `${action.actionLabel} ${formatActionFrequency(action.frequency)} · ${browserV2EvModeLabel(evMode)} ${formatBrowserV2SelectedEv(action, evMode)}`)
+    .join(" / ");
+}
+
+function getBrowserV2PrimaryAction(actions: BrowserV2ActionView[]): BrowserV2ActionView | null {
+  if (actions.length === 0) {
+    return null;
+  }
+  return [...actions].sort((left, right) => (right.frequency ?? -1) - (left.frequency ?? -1))[0] ?? null;
+}
+
+function formatBrowserV2SelectedEv(action: BrowserV2ActionView, evMode: BrowserV2EvMode): string {
+  if (evMode === "CHIP_EV") {
+    return formatActionEv(action.chipEv);
+  }
+  if (evMode === "ICM_EV") {
+    return formatActionEv(action.icmEv);
+  }
+  return formatActionEv(action.ev);
+}
+
+function browserV2EvModeLabel(evMode: BrowserV2EvMode): string {
+  if (evMode === "CHIP_EV") {
+    return "ChipEV";
+  }
+  if (evMode === "ICM_EV") {
+    return "ICM EV";
+  }
+  return "EV";
+}
+
+function parseBrowserV2EvMode(value: string): BrowserV2EvMode {
+  if (value === "CHIP_EV") {
+    return "CHIP_EV";
+  }
+  if (value === "ICM_EV") {
+    return "ICM_EV";
+  }
+  return "EV";
+}
+
+function formatBrowserV2SizeFilterLabel(sizeLabel: string): string {
+  return sizeLabel === "unknown/unspecified" ? "사이즈 미지정" : sizeLabel;
+}
+
+function formatBrowserV2ActionSizeLabel(action: BrowserV2ActionView): string {
+  return action.sizeGroupLabel === "unknown/unspecified" ? "사이즈 미지정" : action.sizeLabel;
+}
+
+function formatBrowserV2Warnings(warnings: string[]): string {
+  if (warnings.length === 0) {
+    return "없음";
+  }
+  return warnings.map(formatMultiActionWarning).join(" | ");
 }
 
 function formatMultiActionSize(size: Parameters<typeof formatActionSize>[0]): string {

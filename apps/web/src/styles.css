@@ -644,6 +644,10 @@ textarea.compact-textarea {
   grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1fr 1fr 1fr 1.5fr;
 }
 
+.range-row.browser-v2-row {
+  grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr 1fr 1.5fr;
+}
+
 .range-row span {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -692,6 +696,88 @@ textarea.compact-textarea {
 .matrix-wrap {
   display: grid;
   gap: 10px;
+}
+
+.browser-v2-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  gap: 6px;
+}
+
+.browser-v2-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.browser-v2-controls label {
+  display: grid;
+  gap: 4px;
+  color: #425368;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.browser-v2-controls select {
+  min-width: 0;
+}
+
+.browser-v2-cell {
+  display: grid;
+  min-height: 74px;
+  gap: 4px;
+  align-content: start;
+  border: 1px solid #dce3ed;
+  border-radius: 6px;
+  padding: 8px;
+  background: #ffffff;
+  color: #1d2b3d;
+  text-align: left;
+  cursor: pointer;
+}
+
+.browser-v2-cell.mixed {
+  border-color: #d4c4f4;
+  background: #f7f3ff;
+}
+
+.browser-v2-cell.selected {
+  border-color: #6f8ff2;
+  box-shadow: 0 0 0 2px rgba(111, 143, 242, 0.18);
+}
+
+.browser-v2-cell strong,
+.browser-v2-cell span,
+.browser-v2-cell small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.browser-v2-cell strong {
+  font-size: 13px;
+}
+
+.browser-v2-cell span {
+  color: #33445a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.browser-v2-cell small {
+  color: #6b7788;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.browser-v2-detail {
+  display: grid;
+  gap: 8px;
+}
+
+.browser-v2-detail h4 {
+  margin: 0;
+  color: #1d2b3d;
+  font-size: 14px;
 }
 
 .matrix-summary {

@@ -43,6 +43,63 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v1.9 Browser v2
+
+Browser v2는 Database Detail 안에 있는 read-only 탐색 섹션입니다. 별도 Browser 탭은 아직 없으며, 선택된 solution의 stored strategy를 화면용 view model로 변환해 action frequency matrix와 selected hand detail을 보여줍니다.
+
+### What Browser v2 Shows
+
+- v2 `hand -> actions[]` strategy가 있으면 저장된 원본 `actions[]`를 직접 표시합니다.
+- v1 legacy strategy는 Browser v2 view model로 변환해 표시합니다.
+- Action Frequency Matrix에서 hand별 action frequency를 표시합니다.
+- hand를 선택하면 selected hand action detail을 표시합니다.
+- action detail 표시 항목:
+  - action
+  - size
+  - frequency
+  - EV
+  - ChipEV
+  - ICM EV
+  - warnings
+- 없는 값은 `제공되지 않음`으로 표시합니다.
+- size 없는 `RAISE` / `BET` / `CALL`은 `사이즈 미지정`으로 표시될 수 있습니다.
+
+### Browser v2 Controls
+
+- Hand 선택 UI: matrix preview에서 hand를 선택해 detail을 확인합니다.
+- Action kind filter: DB에 실제 존재하는 action kind만 option으로 표시합니다.
+- Size label filter: DB에 실제 존재하는 size label만 option으로 표시합니다.
+- EV display mode:
+  - `EV`
+  - `ChipEV`
+  - `ICM EV`
+
+필터는 DB에 존재하는 action/size만 기준으로 동작합니다. DB에 없는 action, size, EV를 임의 생성하거나 추정하지 않습니다.
+
+### Relationship To Existing Views
+
+- 기존 Database Detail 13x13 Strategy Matrix는 유지됩니다.
+- 기존 v1.8 Multi-action preview도 유지됩니다.
+- Browser v2는 그 위에 추가된 read-only 탐색 foundation입니다.
+- Analyze, Import, Trainer, Verification UX 동작은 변경하지 않습니다.
+
+### v1.9 Limits
+
+- 별도 Solution Browser 탭은 아직 없습니다.
+- DB schema migration 없음
+- 신규 API 없음
+- 새 import schema 없음
+- solver job generator 없음
+- 자체 solver 없음
+- GTO Wizard 전체 복제 아님
+- solver 계산을 새로 수행하지 않음
+- 추천/nearest 기능 아님
+- RTA/live/OCR/screen capture/overlay/hotkey/live watcher/poker client integration/real-time assistance 없음
+- Nash / approximate Nash 없음
+- PKO / bounty / postflop 없음
+
+v1.9는 read-only Browser v2 foundation 단계입니다. v2.0 이후 별도 Solution Browser 탭이나 더 큰 GTO Wizard식 탐색 경험을 검토할 수 있습니다.
+
 ## v1.8 Multi-Action Import v2
 v1.8 extends the v1.7 `hand -> actions[]` foundation into an import/storage-capable v2 strategy format. It is still an off-table data foundation, not a new solver.
 
