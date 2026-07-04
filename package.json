@@ -1,0 +1,28 @@
+{
+  "name": "poker-tournament-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "npm --workspace @poker-tournament-lab/core run build && npm --workspace @poker-tournament-lab/server run build && npm --workspace @poker-tournament-lab/web run build",
+    "catalog:hrc": "npm --workspace @poker-tournament-lab/core run build && node scripts/catalog-hrc-files.mjs",
+    "import:hrc-folder": "npm --workspace @poker-tournament-lab/core run build && node scripts/import-hrc-folder.mjs",
+    "canonical:keys:dry-run": "npm --workspace @poker-tournament-lab/core run build && npm --workspace @poker-tournament-lab/server run canonical:keys -- --dry-run --report-file \"../../artifacts/latest-canonical-key-report.json\"",
+    "canonical:keys:apply": "npm --workspace @poker-tournament-lab/core run build && npm --workspace @poker-tournament-lab/server run canonical:keys -- --apply --report-file \"../../artifacts/latest-canonical-key-report.json\"",
+    "test": "npm --workspace @poker-tournament-lab/core run test && npm --workspace @poker-tournament-lab/server run test",
+    "typecheck": "npm --workspace @poker-tournament-lab/core run typecheck && npm --workspace @poker-tournament-lab/server run typecheck && npm --workspace @poker-tournament-lab/web run typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.9.0",
+    "tsx": "^4.20.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}

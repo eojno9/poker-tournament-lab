@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.vite/
+.cache/
+coverage/
+*.local
+data/
+artifacts/
+dev-server*.log
+*.db
+*.db-shm
+*.db-wal
