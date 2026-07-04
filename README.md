@@ -43,6 +43,69 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.3 HRC Compatibility
+
+v2.3은 v2.2 TEST_ONLY/SAMPLE fixture 이후 단계로, 실제 imported HRC-derived DB shape를 read-only로 검증합니다. raw HRC export 원본 검증과 이미 import된 DB-derived 검증은 서로 다른 트랙으로 분리합니다.
+
+### Real HRC Sample Intake
+
+sanitized real HRC sample은 아래 테스트 fixture 위치를 기준으로 다룹니다.
+
+- `packages/core/test/fixtures/real-hrc-samples/`
+
+raw HRC export 원본 파일은 repo에 넣지 않습니다. 원본 파일은 repo 밖에 보관하고, fixture로 사용할 때는 sanitized copy만 추가합니다.
+
+sanitize 원칙:
+
+- 개인정보 제거
+- 로컬 경로 제거
+- 유저명 제거
+- 플레이어명 제거
+- 민감 메모 제거
+- sample metadata에 `REAL_HRC_SAMPLE` 또는 `HRC_SAMPLE`, `sanitized: true`, `originalTool: HRC` 명시
+
+raw sample이 없으면 compatibility test는 실패하지 않고 `not_provided` 또는 pending 상태로 처리합니다.
+
+### DB-Derived HRC Compatibility
+
+현재 v2.3에서 검증된 것은 raw HRC export payload가 아니라, SQLite DB에 이미 저장된 normalized HRC-derived data입니다. 분석은 read-only로 수행하며 `imports.metadata_json`, `solutions.spot_json`, `solutions.strategy_json`, artifacts report를 확인합니다.
+
+검증된 DB-derived 결과:
+
+- `solutions`: 262 rows
+- `imports`: 684 rows
+- `strategy_json`: legacy hand map 262 rows
+- v2 `actions[]` rows: 0
+- all strategy rows have 169 hands
+- raw/BLOB/original payload columns: none
+- exact lookup: 262/262
+- random lookup: 20/20
+- duplicate canonical key: 0
+- near-match HRC false positive: 0
+
+raw export compatibility status는 `pending_raw_export_required`입니다. 실제 raw HRC export 파일을 확보하기 전까지 raw export shape와 current validator mismatch는 확정하지 않습니다.
+
+### v2.3 Limits
+
+- production DB 변경 없음
+- 신규 API 없음
+- DB schema migration 없음
+- import product logic 변경 없음
+- raw HRC export compatibility는 실제 raw export 파일 확보 전까지 pending
+- 새 solver 없음
+- solver job generator 없음
+- nearest recommendation 없음
+- RTA/live 기능 없음
+
+### Safety Scope
+
+- off-table only
+- raw HRC export는 sanitize 전 커밋 금지
+- 실제 HRC 원본 파일은 repo 밖 보관
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration 없음
+- Nash / approximate Nash 없음
+- PKO / bounty / postflop 없음
+
 ## v2.2 RFI / Limp Sample Fixture Coverage
 
 v2.2는 v2.1 Action Tree Browser가 Push/Fold 외의 preflop action tree node에서도 안정적으로 작동하는지 검증하기 위한 TEST_ONLY/SAMPLE fixture coverage 단계입니다. production DB를 변경하지 않고, RFI/Open Raise, Limp, Facing Open, Facing Limp, vs 3bet 계열 sample payload와 unit coverage만 추가했습니다.
