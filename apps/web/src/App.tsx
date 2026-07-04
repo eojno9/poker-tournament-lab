@@ -117,9 +117,9 @@ import {
 } from "./analyzeActionSizingSelector.js";
 import { buildDatabaseActionSizingSummary } from "./databaseActionSizingSummary.js";
 import { buildMultiActionFromAnalyzeResult, buildMultiActionFromSolution } from "./multiActionAdapter.js";
-import { buildBrowserV2Model, type BrowserV2ActionView, type BrowserV2EvMode, type BrowserV2HandCell } from "./browserV2Model.js";
+import { buildBrowserV2Model, type BrowserV2ActionView, type BrowserV2EvMode, type BrowserV2HandCell, type BrowserV2Model } from "./browserV2Model.js";
 
-type Tab = "analyze" | "import" | "database" | "trainer";
+type Tab = "analyze" | "browser" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
 type PresetNoticeTone = "success" | "error";
 
@@ -210,6 +210,9 @@ export function App() {
           <button className={activeTab === "analyze" ? "active" : ""} onClick={() => setActiveTab("analyze")} type="button">
             <Play size={16} /> Analyze
           </button>
+          <button className={activeTab === "browser" ? "active" : ""} onClick={() => setActiveTab("browser")} type="button">
+            <Search size={16} /> Browser
+          </button>
           <button className={activeTab === "trainer" ? "active" : ""} onClick={() => setActiveTab("trainer")} type="button" data-testid="trainer-tab">
             <GraduationCap size={16} /> Trainer
           </button>
@@ -223,12 +226,574 @@ export function App() {
       </header>
 
       {activeTab === "analyze" && <AnalyzeView prefill={analyzePrefill} onConsumePrefill={() => setAnalyzePrefill(null)} />}
+      {activeTab === "browser" && <SolutionBrowserView />}
       {activeTab === "trainer" && <TrainerView />}
       {activeTab === "import" && <ImportView />}
       {activeTab === "database" && (
         <DatabaseView onGoImport={() => setActiveTab("import")} onFillAnalyze={(spot) => moveToAnalyzeWithSpot(spot)} />
       )}
     </main>
+  );
+}
+
+function SolutionBrowserView() {
+  const [solutions, setSolutions] = useState<SolutionListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedSolutionId, setSelectedSolutionId] = useState<number | null>(null);
+  const [selectedBrowserHand, setSelectedBrowserHand] = useState<string | null>(null);
+  const [selectedBrowserActionKind, setSelectedBrowserActionKind] = useState("ALL");
+  const [selectedBrowserSizeLabel, setSelectedBrowserSizeLabel] = useState("ALL");
+  const [selectedBrowserEvMode, setSelectedBrowserEvMode] = useState<BrowserV2EvMode>("EV");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    listSolutions("", 500)
+      .then((rows) => {
+        if (!cancelled) {
+          setSolutions(rows);
+        }
+      })
+      .catch((caught) => {
+        if (!cancelled) {
+          setError(caught instanceof Error ? caught.message : "solution 목록을 불러오지 못했습니다.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const catalog = useMemo(() => solutions.map((solution) => buildCatalogItem(solution)), [solutions]);
+
+  useEffect(() => {
+    if (catalog.length === 0) {
+      setSelectedSolutionId(null);
+      return;
+    }
+    if (!selectedSolutionId || !catalog.some((item) => item.row.id === selectedSolutionId)) {
+      const hrcCandidate = catalog.find((item) => item.row.sourceLabel.toUpperCase().includes("HRC"));
+      setSelectedSolutionId((hrcCandidate ?? catalog[0])?.row.id ?? null);
+    }
+  }, [catalog, selectedSolutionId]);
+
+  const selected = catalog.find((item) => item.row.id === selectedSolutionId) ?? null;
+  const selectedBrowserModel = useMemo(() => {
+    if (!selected) {
+      return null;
+    }
+    try {
+      return buildBrowserV2Model(selected.row.strategy);
+    } catch {
+      return null;
+    }
+  }, [selected]);
+  const selectedActionPath = selected ? formatBrowserActionPath(selected.row.spot.actionPath) : "제공되지 않음";
+  const selectedRemainingPlayers = selected ? countRemainingPlayers(selected.row.spot) : null;
+  const selectedStrategySchema = selected ? describeSolutionStrategySchema(selected.row, selectedBrowserModel?.strategyMode ?? null) : "제공되지 않음";
+  const browserActionKindOptions = useMemo(
+    () => (selectedBrowserModel ? ["ALL", ...selectedBrowserModel.availableActionKinds] : ["ALL"]),
+    [selectedBrowserModel]
+  );
+  const browserSizeLabelOptions = useMemo(
+    () => (selectedBrowserModel ? ["ALL", ...selectedBrowserModel.availableSizeLabels] : ["ALL"]),
+    [selectedBrowserModel]
+  );
+  const filteredBrowserHands = useMemo(
+    () => filterBrowserV2Hands(selectedBrowserModel?.hands ?? [], selectedBrowserActionKind, selectedBrowserSizeLabel),
+    [selectedBrowserActionKind, selectedBrowserModel, selectedBrowserSizeLabel]
+  );
+
+  useEffect(() => {
+    setSelectedBrowserActionKind("ALL");
+    setSelectedBrowserSizeLabel("ALL");
+    setSelectedBrowserEvMode("EV");
+    setSelectedBrowserHand(null);
+  }, [selectedSolutionId]);
+
+  useEffect(() => {
+    if (!selectedBrowserModel) {
+      if (selectedBrowserActionKind !== "ALL") {
+        setSelectedBrowserActionKind("ALL");
+      }
+      if (selectedBrowserSizeLabel !== "ALL") {
+        setSelectedBrowserSizeLabel("ALL");
+      }
+      return;
+    }
+    if (
+      selectedBrowserActionKind !== "ALL" &&
+      !selectedBrowserModel.availableActionKinds.some((actionKind) => actionKind === selectedBrowserActionKind)
+    ) {
+      setSelectedBrowserActionKind("ALL");
+    }
+    if (selectedBrowserSizeLabel !== "ALL" && !selectedBrowserModel.availableSizeLabels.includes(selectedBrowserSizeLabel)) {
+      setSelectedBrowserSizeLabel("ALL");
+    }
+  }, [selectedBrowserActionKind, selectedBrowserModel, selectedBrowserSizeLabel]);
+
+  useEffect(() => {
+    if (!selectedBrowserModel || selectedBrowserModel.hands.length === 0 || filteredBrowserHands.length === 0) {
+      if (selectedBrowserHand !== null) {
+        setSelectedBrowserHand(null);
+      }
+      return;
+    }
+    if (!selectedBrowserHand || !filteredBrowserHands.some((hand) => hand.hand.hand === selectedBrowserHand)) {
+      const defaultHand =
+        filteredBrowserHands.find((hand) => hand.actions.length > 1)?.hand.hand ??
+        filteredBrowserHands.find((hand) => hand.actions.length > 0)?.hand.hand ??
+        filteredBrowserHands[0]?.hand.hand ??
+        null;
+      setSelectedBrowserHand(defaultHand);
+    }
+  }, [filteredBrowserHands, selectedBrowserHand, selectedBrowserModel]);
+
+  return (
+    <section className="solution-browser-shell" data-testid="solution-browser-view">
+      <div className="panel stack solution-browser-intro">
+        <div className="panel-title">
+          <Search size={18} />
+          <h2>Solution Browser</h2>
+        </div>
+        <p>
+          v2.0에서는 v1.9 Browser v2 기반을 별도 Browser 화면으로 승격하는 중입니다. 이 화면은 read-only DB
+          browser이며 solver 계산을 새로 수행하지 않습니다.
+        </p>
+        <p>/api/solutions 기존 DB 데이터만 사용합니다. nearest recommendation 없음. RTA/live 기능 없음.</p>
+      </div>
+
+      <div className="solution-browser-grid" data-testid="solution-browser-layout">
+        <section className="panel stack solution-browser-panel" data-testid="browser-spot-selector-panel">
+          <div className="panel-title">
+            <Database size={18} />
+            <h2>Spot Selector</h2>
+          </div>
+          <p>DB에 있는 spot만 선택합니다.</p>
+          <p className="muted">임의 spot 생성 없이 DB에 실제 존재하는 solution만 표시합니다.</p>
+
+          {loading ? <p className="muted">solution 목록을 불러오는 중...</p> : null}
+          {error ? <p className="error-text">Browser solution 조회 실패: {error}</p> : null}
+          {!loading && !error && catalog.length === 0 ? <p className="muted">조건에 맞는 solution 없음 / 저장된 solution이 없습니다.</p> : null}
+
+          <div className="solution-browser-candidate-list" aria-label="browser solution candidates">
+            {catalog.map((item) => (
+              <button
+                className={`solution-browser-candidate ${item.row.id === selectedSolutionId ? "selected" : ""}`}
+                data-testid="browser-solution-candidate"
+                key={item.row.id}
+                onClick={() => setSelectedSolutionId(item.row.id)}
+                type="button"
+              >
+                <strong>{item.heroPosition || "Hero Position 제공되지 않음"}</strong>
+                <span>{item.tableSize ? `${item.tableSize} players` : "Table Size 제공되지 않음"}</span>
+                <span>Remaining {formatCount(countRemainingPlayers(item.row.spot))}</span>
+                <span>Hero stack {formatBb(item.heroStackBb)}</span>
+                <span>Action Node {formatBrowserActionPath(item.row.spot.actionPath)}</span>
+                <span>Tree {item.treeConfig || "제공되지 않음"}</span>
+                <span>Source {item.row.sourceLabel || "제공되지 않음"}</span>
+                <span>Source file {item.sourceFile || "제공되지 않음"}</span>
+                <span>Schema {describeSolutionStrategySchema(item.row, null)}</span>
+                <code>{shortCanonicalKey(item.canonicalKey)}</code>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel stack solution-browser-panel solution-browser-matrix-panel" data-testid="browser-strategy-matrix-panel">
+          <div className="panel-title">
+            <SlidersHorizontal size={18} />
+            <h2>13x13 Strategy Matrix</h2>
+          </div>
+          <p>선택한 solution의 action frequency matrix가 표시됩니다.</p>
+          {!selected ? (
+            <p className="muted">왼쪽에서 DB solution을 선택해 주세요.</p>
+          ) : (
+            <>
+              <div className="detail-grid" data-testid="browser-selected-summary">
+                <ResultDetailItem label="selected solution" value={selected.row.sourceLabel || "제공되지 않음"} />
+                <ResultDetailItem label="hero position" value={selected.heroPosition || "제공되지 않음"} />
+                <ResultDetailItem label="table / remaining" value={`${selected.tableSize ?? "제공되지 않음"} / ${selectedRemainingPlayers ?? "제공되지 않음"}`} />
+                <ResultDetailItem label="hero stack" value={formatBb(selected.heroStackBb)} />
+                <ResultDetailItem label="strategy schema" value={selectedStrategySchema} />
+                <ResultDetailItem label="strategy entries" value={formatCount(selected.strategyCount)} />
+              </div>
+              <div className="browser-v2-controls" data-testid="solution-browser-controls">
+                <label>
+                  Action kind filter
+                  <select
+                    aria-label="solution browser action kind filter"
+                    disabled={!selectedBrowserModel}
+                    value={selectedBrowserActionKind}
+                    onChange={(event) => setSelectedBrowserActionKind(event.target.value)}
+                  >
+                    {browserActionKindOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Size label filter
+                  <select
+                    aria-label="solution browser size label filter"
+                    disabled={!selectedBrowserModel}
+                    value={selectedBrowserSizeLabel}
+                    onChange={(event) => setSelectedBrowserSizeLabel(event.target.value)}
+                  >
+                    {browserSizeLabelOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  EV display mode
+                  <select
+                    aria-label="solution browser EV display mode"
+                    value={selectedBrowserEvMode}
+                    onChange={(event) => setSelectedBrowserEvMode(parseBrowserV2EvMode(event.target.value))}
+                  >
+                    <option value="EV">EV</option>
+                    <option value="CHIP_EV">ChipEV</option>
+                    <option value="ICM_EV">ICM EV</option>
+                  </select>
+                </label>
+              </div>
+              <SolutionBrowserStrategyMatrix
+                actionKindFilter={selectedBrowserActionKind}
+                evMode={selectedBrowserEvMode}
+                filteredHands={filteredBrowserHands}
+                model={selectedBrowserModel}
+                onSelectHand={setSelectedBrowserHand}
+                selectedHand={selectedBrowserHand}
+                sizeLabelFilter={selectedBrowserSizeLabel}
+              />
+            </>
+          )}
+        </section>
+
+        <section className="panel stack solution-browser-panel" data-testid="browser-hand-detail-panel">
+          <div className="panel-title">
+            <BookmarkPlus size={18} />
+            <h2>Hand Detail</h2>
+          </div>
+          <p>선택한 hand의 action, size, frequency, EV가 표시됩니다.</p>
+          {!selected ? (
+            <p className="muted">선택된 solution metadata가 없습니다.</p>
+          ) : (
+            <>
+              <SolutionBrowserHandDetail
+                actionKindFilter={selectedBrowserActionKind}
+                evMode={selectedBrowserEvMode}
+                filteredHands={filteredBrowserHands}
+                model={selectedBrowserModel}
+                selectedHand={selectedBrowserHand}
+                sizeLabelFilter={selectedBrowserSizeLabel}
+              />
+              <SolutionBrowserMetadataPanel
+                actionPath={selectedActionPath}
+                model={selectedBrowserModel}
+                remainingPlayers={selectedRemainingPlayers}
+                schemaLabel={selectedStrategySchema}
+                selected={selected}
+              />
+            </>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function SolutionBrowserStrategyMatrix({
+  actionKindFilter,
+  evMode,
+  filteredHands,
+  model,
+  onSelectHand,
+  selectedHand,
+  sizeLabelFilter
+}: {
+  actionKindFilter: string;
+  evMode: BrowserV2EvMode;
+  filteredHands: FilteredBrowserV2Hand[];
+  model: BrowserV2Model | null;
+  onSelectHand: (hand: string) => void;
+  selectedHand: string | null;
+  sizeLabelFilter: string;
+}) {
+  if (!model) {
+    return (
+      <div className="notice" data-testid="browser-matrix-empty">
+        <p>선택한 solution의 Browser v2 model을 생성할 수 없습니다.</p>
+        <p>strategy가 없거나 변환 가능한 hand/action 데이터가 없습니다.</p>
+      </div>
+    );
+  }
+
+  const handMap = new Map(filteredHands.map((hand) => [hand.hand.hand, hand]));
+  const modeLabel = formatBrowserStrategyMode(model.strategyMode);
+
+  return (
+    <div className="solution-browser-matrix-block" data-testid="browser-strategy-matrix">
+      <div className="notice">
+        <p>선택한 DB solution의 strategy를 표시합니다.</p>
+        <p>v2 actions[]는 원본 데이터 기반으로 표시합니다.</p>
+        <p>v1 legacy strategy는 Browser v2 model로 변환해 표시합니다.</p>
+        <p>read-only이며 solver 계산을 수행하지 않습니다.</p>
+      </div>
+
+      <div className="detail-grid">
+        <ResultDetailItem label="strategy mode" value={modeLabel} />
+        <ResultDetailItem label="hands" value={String(model.handCount)} />
+        <ResultDetailItem label="actions" value={String(model.totalActionCount)} />
+        <ResultDetailItem label="mixed hands" value={String(model.mixedHandCount)} />
+        <ResultDetailItem label="action kinds" value={model.availableActionKinds.join(", ") || "제공되지 않음"} />
+        <ResultDetailItem label="size labels" value={model.availableSizeLabels.join(", ") || "제공되지 않음"} />
+        <ResultDetailItem label="active action filter" value={actionKindFilter} />
+        <ResultDetailItem label="active size filter" value={sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)} />
+        <ResultDetailItem label="EV display mode" value={browserV2EvModeLabel(evMode)} />
+        <ResultDetailItem label="filtered hands" value={String(filteredHands.length)} />
+      </div>
+
+      {model.hands.length === 0 ? (
+        <p className="muted">표시 가능한 hand/action 데이터가 제공되지 않음</p>
+      ) : (
+        <>
+          {filteredHands.length === 0 ? <p className="muted">선택한 필터에 해당하는 action이 없습니다.</p> : null}
+          <div className="solution-browser-strategy-matrix" aria-label="solution browser action frequency matrix">
+            {HAND_KEYS.map((handKey) => {
+              const hand = handMap.get(handKey) ?? null;
+              const primary = hand ? getBrowserV2PrimaryAction(hand.actions) : null;
+              return (
+                <button
+                  aria-label={`Solution Browser hand ${handKey}`}
+                  className={`solution-browser-strategy-cell ${hand && hand.actions.length > 1 ? "mixed" : ""} ${hand ? "" : "empty"} ${
+                    hand?.hand.hand === selectedHand ? "selected" : ""
+                  }`}
+                  data-testid={`browser-matrix-hand-${handKey.toLowerCase()}`}
+                  disabled={!hand}
+                  key={handKey}
+                  onClick={() => {
+                    if (hand) {
+                      onSelectHand(hand.hand.hand);
+                    }
+                  }}
+                  type="button"
+                >
+                  <strong>{handKey}</strong>
+                  <span>{hand ? formatBrowserV2HandLine(hand.actions, evMode) : "제공되지 않음"}</span>
+                  <small>{hand && hand.actions.length > 1 ? "mixed" : primary?.actionLabel ?? "제공되지 않음"}</small>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SolutionBrowserHandDetail({
+  actionKindFilter,
+  evMode,
+  filteredHands,
+  model,
+  selectedHand,
+  sizeLabelFilter
+}: {
+  actionKindFilter: string;
+  evMode: BrowserV2EvMode;
+  filteredHands: FilteredBrowserV2Hand[];
+  model: BrowserV2Model | null;
+  selectedHand: string | null;
+  sizeLabelFilter: string;
+}) {
+  if (!model) {
+    return (
+      <div className="notice" data-testid="browser-hand-detail">
+        <p>Hand detail을 생성할 수 없습니다.</p>
+        <p>strategy가 없거나 Browser v2 model 변환 결과가 제공되지 않음</p>
+      </div>
+    );
+  }
+
+  if (model.hands.length === 0) {
+    return (
+      <div className="notice" data-testid="browser-hand-detail">
+        <p>표시 가능한 hand가 없습니다.</p>
+        <p>selected hand에 actions가 제공되지 않음</p>
+      </div>
+    );
+  }
+
+  const hand = filteredHands.find((candidate) => candidate.hand.hand === selectedHand) ?? filteredHands[0] ?? null;
+  if (!hand) {
+    return (
+      <div className="notice" data-testid="browser-hand-detail">
+        <p>선택한 필터에 해당하는 action이 없습니다.</p>
+        <p>Action kind 또는 size label filter를 ALL로 바꾸면 다시 표시됩니다.</p>
+      </div>
+    );
+  }
+
+  const primary = getBrowserV2PrimaryAction(hand.actions);
+
+  return (
+    <div className="solution-browser-hand-detail" data-testid="browser-hand-detail">
+      <div className="notice">
+        <p>선택한 DB solution의 hand detail을 표시합니다.</p>
+        <p>v2 actions[]는 원본 데이터 기반으로 표시합니다.</p>
+        <p>v1 legacy strategy는 Browser v2 model로 변환해 표시합니다.</p>
+        <p>read-only이며 solver 계산을 수행하지 않습니다.</p>
+      </div>
+
+      <div className="detail-grid">
+        <ResultDetailItem label="hand" value={hand.hand.hand} />
+        <ResultDetailItem label="primary action" value={primary?.actionLabel ?? "제공되지 않음"} />
+        <ResultDetailItem label="mixed action" value={hand.actions.length > 1 ? "YES" : "NO"} />
+        <ResultDetailItem label="action count" value={String(hand.actions.length)} />
+        <ResultDetailItem label="total frequency" value={formatBrowserV2FilteredFrequency(hand.actions)} />
+        <ResultDetailItem label="strategy mode" value={formatBrowserStrategyMode(model.strategyMode)} />
+        <ResultDetailItem label="active action filter" value={actionKindFilter} />
+        <ResultDetailItem label="active size filter" value={sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)} />
+        <ResultDetailItem label="EV display mode" value={browserV2EvModeLabel(evMode)} />
+      </div>
+
+      {hand.actions.length === 0 ? (
+        <p className="muted">selected hand에 actions가 제공되지 않음</p>
+      ) : (
+        <div className="solution-browser-action-detail-list" aria-label="solution browser selected hand actions">
+          {hand.actions.map((action, index) => (
+            <div className="solution-browser-action-detail-card" data-testid="browser-hand-action-row" key={`${hand.hand.hand}-${action.action}-${index}`}>
+              <strong>{action.actionLabel}</strong>
+              <div className="detail-grid">
+                <ResultDetailItem label="action" value={action.actionLabel} />
+                <ResultDetailItem label="size" value={formatBrowserV2ActionSizeLabel(action)} />
+                <ResultDetailItem label="frequency" value={formatActionFrequency(action.frequency)} />
+                <ResultDetailItem label={`${browserV2EvModeLabel(evMode)} selected`} value={formatBrowserV2SelectedEv(action, evMode)} />
+                <ResultDetailItem label="EV" value={formatActionEv(action.ev)} />
+                <ResultDetailItem label="ChipEV" value={formatActionEv(action.chipEv)} />
+                <ResultDetailItem label="ICM EV" value={formatActionEv(action.icmEv)} />
+                <ResultDetailItem label="source" value={action.sourceActionLabel ?? "제공되지 않음"} />
+                <ResultDetailItem label="warnings" value={formatBrowserV2Warnings(action.warnings)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function SolutionBrowserMetadataPanel({
+  actionPath,
+  model,
+  remainingPlayers,
+  schemaLabel,
+  selected
+}: {
+  actionPath: string;
+  model: BrowserV2Model | null;
+  remainingPlayers: number | null;
+  schemaLabel: string;
+  selected: SolutionCatalogItem;
+}) {
+  const solution = selected.row;
+  const features = solution.databaseFeatures;
+  const warningSummary = summarizeBrowserMetadataWarnings(model);
+  const sourceWarnings = features?.warnings ?? [];
+  const allWarnings = Array.from(new Set([...sourceWarnings, ...(model?.warnings ?? [])]));
+
+  return (
+    <div className="solution-browser-metadata-panel" data-testid="browser-selected-metadata" aria-label="selected solution metadata">
+      <div>
+        <h3>Source / Metadata</h3>
+        <p className="muted">선택한 solution의 DB source, schema, canonical key, import metadata를 read-only로 표시합니다.</p>
+      </div>
+
+      <div className="notice">
+        <p>이 Browser는 DB에 저장된 solution만 표시합니다.</p>
+        <p>nearest recommendation을 수행하지 않습니다.</p>
+        <p>solver 계산을 새로 수행하지 않습니다.</p>
+        <p>RTA/live 기능이 아닙니다.</p>
+      </div>
+
+      <p className="muted">{formatBrowserSchemaNotice(schemaLabel)}</p>
+
+      <div className="detail-grid">
+        <ResultDetailItem label="source" value={solution.sourceLabel || "제공되지 않음"} />
+        <ResultDetailItem label="source label" value={solution.sourceLabel || "제공되지 않음"} />
+        <ResultDetailItem label="schema" value={schemaLabel || "schema 정보 제공되지 않음"} />
+        <ResultDetailItem label="hero position" value={selected.heroPosition || "제공되지 않음"} />
+        <ResultDetailItem label="table size" value={selected.tableSize === null ? "제공되지 않음" : String(selected.tableSize)} />
+        <ResultDetailItem label="remaining players" value={remainingPlayers === null ? "제공되지 않음" : String(remainingPlayers)} />
+        <ResultDetailItem label="hero stack" value={formatBb(selected.heroStackBb)} />
+        <ResultDetailItem label="tree config" value={selected.treeConfig || "제공되지 않음"} />
+        <ResultDetailItem label="source file" value={selected.sourceFile || "제공되지 않음"} />
+        <ResultDetailItem label="import id" value={String(solution.importId)} />
+        <ResultDetailItem label="imported at" value={formatBrowserImportedAt(solution.importedAt)} />
+        <ResultDetailItem label="file hash" value={solution.fileHash || "제공되지 않음"} />
+        <ResultDetailItem label="strategy hand count" value={model ? String(model.handCount) : formatCount(selected.strategyCount)} />
+        <ResultDetailItem label="action count" value={model ? String(model.totalActionCount) : "제공되지 않음"} />
+        <ResultDetailItem label="warning count" value={String(allWarnings.length)} />
+        <ResultDetailItem label="missing EV" value={String(warningSummary.missingEvCount)} />
+        <ResultDetailItem label="missing size" value={String(warningSummary.missingSizeCount)} />
+        <ResultDetailItem label="unknown action" value={String(warningSummary.unknownActionCount)} />
+      </div>
+
+      <div className="solution-browser-canonical-key">
+        <span>canonical key</span>
+        <code>{solution.canonicalKey || "제공되지 않음"}</code>
+      </div>
+
+      <div className="solution-browser-canonical-key">
+        <span>action path</span>
+        <code>{actionPath}</code>
+      </div>
+
+      <div className="browser-placeholder-list" aria-label="browser source metadata">
+        <div className="browser-placeholder-row">
+          <span>external id</span>
+          <strong>{solution.externalId || "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>calculation model</span>
+          <strong>{features?.calculationModel ?? "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>spot family</span>
+          <strong>{features?.spotFamily || "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>export shape</span>
+          <strong>{features?.exportShape ?? "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>street scope</span>
+          <strong>{features?.streetScope ?? "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>action tags</span>
+          <strong>{features?.actionTags.length ? features.actionTags.join(", ") : "제공되지 않음"}</strong>
+        </div>
+        <div className="browser-placeholder-row">
+          <span>warnings</span>
+          <strong>{allWarnings.length > 0 ? allWarnings.join(", ") : "제공되지 않음"}</strong>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -3116,6 +3681,16 @@ function formatBrowserV2HandLine(actions: BrowserV2ActionView[], evMode: Browser
     .join(" / ");
 }
 
+function formatBrowserV2FilteredFrequency(actions: BrowserV2ActionView[]): string {
+  const frequencies = actions
+    .map((action) => action.frequency)
+    .filter((frequency): frequency is number => typeof frequency === "number" && Number.isFinite(frequency));
+  if (frequencies.length === 0) {
+    return "제공되지 않음";
+  }
+  return formatActionFrequency(frequencies.reduce((sum, frequency) => sum + frequency, 0));
+}
+
 function getBrowserV2PrimaryAction(actions: BrowserV2ActionView[]): BrowserV2ActionView | null {
   if (actions.length === 0) {
     return null;
@@ -3166,6 +3741,43 @@ function formatBrowserV2Warnings(warnings: string[]): string {
     return "없음";
   }
   return warnings.map(formatMultiActionWarning).join(" | ");
+}
+
+function summarizeBrowserMetadataWarnings(model: BrowserV2Model | null): {
+  missingEvCount: number;
+  missingSizeCount: number;
+  unknownActionCount: number;
+} {
+  const actions = model?.hands.flatMap((hand) => hand.actions) ?? [];
+  return {
+    missingEvCount: actions.filter((action) => action.missingEv).length,
+    missingSizeCount: actions.filter((action) => action.missingSize).length,
+    unknownActionCount: actions.filter((action) => action.unknownAction).length
+  };
+}
+
+function formatBrowserSchemaNotice(schemaLabel: string): string {
+  if (schemaLabel.includes("multi-action-v2")) {
+    return "v2 actions[] 원본 데이터를 표시합니다.";
+  }
+  if (schemaLabel.includes("legacy")) {
+    return "v1 legacy strategy를 Browser v2 model로 변환해 표시합니다.";
+  }
+  if (!schemaLabel || schemaLabel === "제공되지 않음" || schemaLabel.includes("unknown")) {
+    return "schema 정보 제공되지 않음";
+  }
+  return schemaLabel;
+}
+
+function formatBrowserImportedAt(value: string): string {
+  if (!value) {
+    return "제공되지 않음";
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString("ko-KR");
 }
 
 function formatMultiActionSize(size: Parameters<typeof formatActionSize>[0]): string {
@@ -3370,6 +3982,73 @@ function buildCatalogItem(solution: SolutionListItem): SolutionCatalogItem {
     sourceFile: solution.fileName ?? "",
     canonicalKey: solution.canonicalKey
   };
+}
+
+function countRemainingPlayers(spot: SpotInput): number | null {
+  const inHandCount = spot.players.filter((player) => player.inHand).length;
+  if (inHandCount > 0) {
+    return inHandCount;
+  }
+  return spot.players.length > 0 ? spot.players.length : null;
+}
+
+function formatBrowserActionPath(actionPath: string[]): string {
+  return actionPath.length > 0 ? actionPath.join(" > ") : "제공되지 않음";
+}
+
+function shortCanonicalKey(canonicalKey: string): string {
+  if (!canonicalKey) {
+    return "제공되지 않음";
+  }
+  return canonicalKey.length > 56 ? `${canonicalKey.slice(0, 56)}...` : canonicalKey;
+}
+
+function describeSolutionStrategySchema(solution: SolutionListItem, modelMode: string | null): string {
+  if (modelMode) {
+    return formatBrowserStrategyMode(modelMode);
+  }
+  const strategy = toRecord(solution.strategy);
+  if (!strategy) {
+    return "제공되지 않음";
+  }
+  const entries = Object.values(strategy);
+  if (entries.length === 0) {
+    return "empty";
+  }
+  const hasMultiActionV2 = entries.some((entry) => {
+    const record = toRecord(entry);
+    return Array.isArray(record?.actions);
+  });
+  const hasLegacy = entries.some((entry) => {
+    const record = toRecord(entry);
+    return typeof record?.action === "string";
+  });
+  if (hasMultiActionV2 && hasLegacy) {
+    return "mixed";
+  }
+  if (hasMultiActionV2) {
+    return "multi-action-v2";
+  }
+  if (hasLegacy) {
+    return "legacy-v1";
+  }
+  return "unknown";
+}
+
+function formatBrowserStrategyMode(mode: string): string {
+  if (mode === "multi-action-v2") {
+    return "multi-action-v2 actions[]";
+  }
+  if (mode === "legacy-adapter") {
+    return "legacy-v1 adapter";
+  }
+  if (mode === "mixed") {
+    return "mixed v1/v2";
+  }
+  if (mode === "empty") {
+    return "empty";
+  }
+  return mode;
 }
 
 function deriveTreeConfig(solution: SolutionListItem): string {

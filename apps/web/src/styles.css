@@ -118,6 +118,269 @@ h3 {
   max-width: 980px;
 }
 
+.solution-browser-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.solution-browser-intro {
+  max-width: none;
+}
+
+.solution-browser-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(460px, 1.28fr) minmax(300px, 0.8fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.solution-browser-panel {
+  min-height: 360px;
+}
+
+.solution-browser-matrix-panel {
+  min-height: 440px;
+}
+
+.browser-placeholder-list {
+  display: grid;
+  gap: 8px;
+}
+
+.solution-browser-candidate-list {
+  display: grid;
+  gap: 8px;
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.solution-browser-candidate {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d8e1ec;
+  border-radius: 8px;
+  color: #33445a;
+  background: #ffffff;
+  text-align: left;
+}
+
+.solution-browser-candidate:hover,
+.solution-browser-candidate.selected {
+  border-color: #5f8fb4;
+  background: #edf6fb;
+}
+
+.solution-browser-candidate strong,
+.solution-browser-candidate span,
+.solution-browser-candidate code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.solution-browser-candidate strong {
+  color: #1d2b3d;
+  font-size: 14px;
+}
+
+.solution-browser-candidate span {
+  color: #536172;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.solution-browser-candidate code {
+  color: #1b5f82;
+  font-size: 11px;
+}
+
+.browser-placeholder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.browser-placeholder-row span,
+.browser-placeholder-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.browser-placeholder-row span {
+  color: #536172;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.browser-placeholder-row strong {
+  color: #1d2b3d;
+  font-size: 12px;
+}
+
+.solution-browser-matrix-skeleton {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(30px, 1fr));
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.solution-browser-matrix-skeleton span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid #cbd7e7;
+  border-radius: 6px;
+  color: #33445a;
+  background: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.solution-browser-matrix-block {
+  display: grid;
+  gap: 12px;
+}
+
+.solution-browser-strategy-matrix {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.solution-browser-strategy-cell {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  width: 100%;
+  min-height: 68px;
+  padding: 5px;
+  border: 1px solid #cbd7e7;
+  border-radius: 6px;
+  color: inherit;
+  background: #ffffff;
+  text-align: left;
+}
+
+.solution-browser-strategy-cell:not(:disabled) {
+  cursor: pointer;
+}
+
+.solution-browser-strategy-cell:disabled {
+  cursor: default;
+}
+
+.solution-browser-strategy-cell.mixed {
+  border-color: #d4c4f4;
+  background: #f7f3ff;
+}
+
+.solution-browser-strategy-cell.selected {
+  border-color: #6f8ff2;
+  box-shadow: 0 0 0 2px rgba(111, 143, 242, 0.18);
+}
+
+.solution-browser-strategy-cell.empty {
+  border-style: dashed;
+  background: #f8fafc;
+}
+
+.solution-browser-strategy-cell strong,
+.solution-browser-strategy-cell span,
+.solution-browser-strategy-cell small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.solution-browser-strategy-cell strong {
+  color: #1d2b3d;
+  font-size: 11px;
+}
+
+.solution-browser-strategy-cell span {
+  color: #33445a;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.solution-browser-strategy-cell small {
+  color: #6b7788;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.solution-browser-hand-detail {
+  display: grid;
+  gap: 12px;
+}
+
+.solution-browser-action-detail-list {
+  display: grid;
+  gap: 10px;
+}
+
+.solution-browser-action-detail-card {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.solution-browser-action-detail-card > strong {
+  color: #1d2b3d;
+  font-size: 13px;
+}
+
+.solution-browser-metadata-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #dce3ed;
+}
+
+.solution-browser-metadata-panel h3 {
+  margin: 0 0 4px;
+  color: #1d2b3d;
+  font-size: 16px;
+}
+
+.solution-browser-canonical-key {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.solution-browser-canonical-key span {
+  color: #536172;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.solution-browser-canonical-key code {
+  color: #1b5f82;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .panel {
   border: 1px solid #dce3ed;
   border-radius: 8px;
@@ -972,7 +1235,8 @@ textarea.compact-textarea {
 
 @media (max-width: 1120px) {
   .workspace-grid,
-  .database-grid {
+  .database-grid,
+  .solution-browser-grid {
     grid-template-columns: 1fr;
   }
 
@@ -995,7 +1259,7 @@ textarea.compact-textarea {
 
   .tabs {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   }
 
   .form-grid,
@@ -1042,6 +1306,31 @@ textarea.compact-textarea {
   .hand-matrix {
     grid-template-columns: repeat(13, minmax(24px, 1fr));
     gap: 2px;
+  }
+
+  .solution-browser-matrix-skeleton {
+    grid-template-columns: repeat(13, minmax(22px, 1fr));
+    gap: 2px;
+  }
+
+  .solution-browser-matrix-skeleton span {
+    min-height: 28px;
+    font-size: 10px;
+  }
+
+  .solution-browser-strategy-matrix {
+    gap: 2px;
+  }
+
+  .solution-browser-strategy-cell {
+    min-height: 58px;
+    padding: 3px;
+  }
+
+  .solution-browser-strategy-cell strong,
+  .solution-browser-strategy-cell span,
+  .solution-browser-strategy-cell small {
+    font-size: 9px;
   }
 
   .hand-cell {

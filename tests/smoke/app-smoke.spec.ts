@@ -389,13 +389,14 @@ test.describe("v1.2 smoke", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ solutions: [databaseSampleSolution] })
+        body: JSON.stringify({ solutions: [databaseV2SampleSolution] })
       });
     });
 
     await page.goto("/");
     const tabs = page.locator("nav.tabs");
     await expect(tabs.getByRole("button", { name: "Analyze", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Browser", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: /Trainer/i })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Import", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Database", exact: true })).toBeVisible();
@@ -420,6 +421,75 @@ test.describe("v1.2 smoke", () => {
     await page.getByTestId("preset-save-button").click();
     await expect(page.getByTestId("analyze-preset-list")).toBeVisible();
     await expect(page.getByTestId("analyze-preset-list")).toContainText("Smoke Preset");
+
+    await tabs.getByRole("button", { name: "Browser", exact: true }).click();
+    await expect(page.getByTestId("solution-browser-view")).toBeVisible();
+    await expect(page.getByTestId("browser-spot-selector-panel")).toContainText("DB에 있는 spot만 선택합니다.");
+    await expect(page.getByTestId("browser-solution-candidate").first()).toBeVisible();
+    await expect(page.getByTestId("browser-solution-candidate").first()).toContainText("HRC Smoke DB");
+    await expect(page.getByTestId("browser-solution-candidate").first()).toContainText("BTN");
+    await expect(page.getByTestId("browser-solution-candidate").first()).toContainText("mtt_10p_rfi_20bb.zip");
+    await expect(page.getByTestId("browser-strategy-matrix-panel")).toContainText("13x13 Strategy Matrix");
+    await expect(page.getByTestId("browser-strategy-matrix-panel")).toContainText("action frequency matrix");
+    await expect(page.getByTestId("browser-selected-summary")).toContainText("HRC Smoke DB");
+    await expect(page.getByTestId("browser-selected-summary")).toContainText("multi-action-v2 actions[]");
+    await expect(page.getByTestId("solution-browser-controls")).toBeVisible();
+    await expect(page.getByLabel("solution browser action kind filter")).toBeVisible();
+    await expect(page.getByLabel("solution browser action kind filter")).toContainText("CALL");
+    await expect(page.getByLabel("solution browser action kind filter")).toContainText("RAISE");
+    await expect(page.getByLabel("solution browser action kind filter")).toContainText("ALL_IN");
+    await expect(page.getByLabel("solution browser size label filter")).toBeVisible();
+    await expect(page.getByLabel("solution browser size label filter")).toContainText("2.2bb");
+    await expect(page.getByLabel("solution browser size label filter")).toContainText("all-in");
+    await expect(page.getByLabel("solution browser EV display mode")).toBeVisible();
+    await expect(page.getByLabel("solution browser EV display mode")).toContainText("ChipEV");
+    await expect(page.getByTestId("browser-strategy-matrix")).toBeVisible();
+    await expect(page.getByTestId("browser-strategy-matrix")).toContainText("선택한 DB solution의 strategy");
+    await expect(page.getByTestId("browser-matrix-hand-aa")).toContainText("AA");
+    await expect(page.getByTestId("browser-matrix-hand-aa")).toContainText("RAISE 45%");
+    await expect(page.getByTestId("browser-matrix-hand-aa")).toContainText("ALL_IN 55%");
+    await expect(page.getByTestId("browser-hand-detail-panel")).toContainText("Hand Detail");
+    await expect(page.getByTestId("browser-hand-detail-panel")).toContainText("action, size, frequency, EV");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("AA");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("primary action");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("mixed action");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("RAISE");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("2.2bb");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("45%");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("ChipEV");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("ICM EV");
+    await page.getByLabel("solution browser EV display mode").selectOption("CHIP_EV");
+    await expect(page.getByTestId("browser-matrix-hand-aa")).toContainText("ChipEV");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("ChipEV selected");
+    await page.getByLabel("solution browser action kind filter").selectOption("CALL");
+    await expect(page.getByLabel("solution browser action kind filter")).toHaveValue("CALL");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("KK");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("CALL");
+    await expect(page.getByTestId("browser-matrix-hand-kk")).toContainText("CALL 100%");
+    await page.getByLabel("solution browser size label filter").selectOption("unknown/unspecified");
+    await expect(page.getByLabel("solution browser size label filter")).toHaveValue("unknown/unspecified");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("KK");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("CALL");
+    await page.getByTestId("browser-matrix-hand-kk").click();
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("KK");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("CALL");
+    await expect(page.getByTestId("browser-hand-detail")).toContainText("100%");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("db-smoke-canonical-key");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("FOLD > FOLD > HERO_DECISION");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("Source / Metadata");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("HRC Smoke DB");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("multi-action-v2 actions[]");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("strategy hand count");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("action count");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("missing EV");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("missing size");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("unknown action");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("file hash");
+    await expect(page.getByTestId("browser-selected-metadata")).toContainText("smoke-hash");
+    await expect(page.getByTestId("solution-browser-view")).toContainText("read-only DB browser");
+    await expect(page.getByTestId("solution-browser-view")).toContainText("/api/solutions");
+    await expect(page.getByTestId("solution-browser-view")).toContainText("nearest recommendation 없음");
+    await expect(page.getByTestId("solution-browser-view")).toContainText("RTA/live 기능 없음");
 
     await tabs.getByRole("button", { name: "Import", exact: true }).click();
     await expect(page.getByRole("heading", { name: /HRC DB Import/i })).toBeVisible();

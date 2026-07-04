@@ -43,6 +43,98 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.0 Solution Browser
+
+v2.0은 기존 Database Detail 안에 있던 Browser v2 탐색 경험을 별도 `Browser` 탭으로 승격한 read-only DB browser입니다. 목표는 GTO Wizard식으로 `spot 선택 -> 13x13 strategy matrix -> hand detail` 흐름을 한 화면에서 제공하는 것입니다.
+
+### Browser 탭
+
+- Browser 탭은 DB에 저장된 solution만 탐색합니다.
+- 기존 `/api/solutions` 응답을 재사용합니다.
+- 신규 API, DB schema migration, 신규 import schema는 추가하지 않았습니다.
+- selected solution을 중심으로 Spot Selector, Strategy Matrix, Hand Detail, Source / Metadata를 표시합니다.
+- 이 화면은 off-table read-only 탐색용이며 solver 계산을 새로 수행하지 않습니다.
+
+### Spot Selector
+
+- 왼쪽 Spot Selector는 기존 `/api/solutions` 기반 solution 후보를 표시합니다.
+- DB에 실제 존재하는 solution만 표시합니다.
+- hero position, table size, remaining players, hero stack, action path, tree config, source file, schema, canonical key 일부를 보여줍니다.
+- 없는 spot을 만들거나 추천하지 않습니다.
+- nearest recommendation은 수행하지 않습니다.
+
+### 13x13 Strategy Matrix
+
+- 중앙 matrix는 selected solution의 Browser v2 model 기반으로 표시됩니다.
+- v2 `hand -> actions[]` strategy는 저장된 원본 `actions[]` 데이터를 직접 표시합니다.
+- v1 legacy strategy는 Browser v2 model로 변환해 one-action view로 표시합니다.
+- hand cell에는 primary action, mixed action 여부, frequency, 선택한 EV display mode 값이 표시됩니다.
+- 값이 없으면 `제공되지 않음`으로 표시하며, 값을 임의 계산하거나 0으로 채우지 않습니다.
+
+### Hand Detail Panel
+
+- 오른쪽 Hand Detail Panel은 matrix에서 선택한 hand의 action detail을 표시합니다.
+- 표시 항목:
+  - action
+  - size
+  - frequency
+  - EV
+  - ChipEV
+  - ICM EV
+  - source
+  - warnings
+- missing value는 `제공되지 않음`으로 표시합니다.
+- size가 없는 `RAISE` / `BET` / `CALL`은 warning 또는 `사이즈 미지정`으로 드러냅니다.
+
+### Controls
+
+- action kind filter: selected solution에 실제 존재하는 action kind만 option으로 표시합니다.
+- size label filter: selected solution에 실제 존재하는 size label만 option으로 표시합니다.
+- EV display mode:
+  - `EV`
+  - `ChipEV`
+  - `ICM EV`
+- 필터는 DB에 존재하는 action/size만 기준으로 동작합니다.
+- DB에 없는 action/size option은 만들지 않습니다.
+
+### Source / Metadata Panel
+
+Source / Metadata panel은 selected solution의 출처와 schema 정보를 명확히 보여줍니다.
+
+표시 항목:
+
+- source / source label
+- schema
+- canonical key 전체
+- action path
+- tree config
+- hero position / table size / remaining players / hero stack
+- source file / import id / imported at / file hash / external id
+- calculation model / spot family / export shape / street scope / action tags
+- strategy hand count / action count / warning count
+- missing EV / missing size / unknown action count
+
+### v2.0 Limits
+
+- 새 solver 없음
+- solver job generator 없음
+- DB schema migration 없음
+- 신규 API 없음
+- 신규 import schema 없음
+- GTO Wizard 전체 복제 아님
+- HRC Pro / ICMIZER급 계산 엔진 아님
+- HRC exact lookup 정책 변경 없음
+- read-only DB browser foundation 단계
+
+### Safety Scope
+
+- off-table only
+- RTA/live 기능 없음
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration 없음
+- nearest recommendation 없음
+- Nash / approximate Nash 없음
+- PKO / bounty / postflop 없음
+
 ## v1.9 Browser v2
 
 Browser v2는 Database Detail 안에 있는 read-only 탐색 섹션입니다. 별도 Browser 탭은 아직 없으며, 선택된 solution의 stored strategy를 화면용 view model로 변환해 action frequency matrix와 selected hand detail을 보여줍니다.
