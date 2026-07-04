@@ -43,6 +43,104 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.6 Real HRC Dry-run Artifacts
+
+v2.6 is dry-run artifact infrastructure only. It does not connect real HRC raw zip files to product import routes, APIs, DB writes, solver logic, analysis logic, fallback logic, or UI.
+
+The goal is to convert existing dry-run results into artifact-safe JSON structures that can be written and compared safely in test scope before any future production import design is considered.
+
+### Scope
+
+- Raw HRC zip originals remain outside the repo.
+- Raw HRC zip originals are not committed.
+- Full raw zip extraction output is not committed.
+- The repo does not create or commit `artifacts/hrc-dry-run-reports/`.
+- Helpers live in `packages/core` test/helper scope only.
+- Product runtime code does not import or use these helpers.
+
+### Artifact-Safe Report Helper
+
+The v2.6 report helper converts an existing dry-run report into artifact-safe JSON data:
+
+- `buildHrcDryRunArtifactReport`
+- `buildHrcDryRunComparisonSummary`
+- `sanitizeArtifactFileName`
+- `maskArtifactPath`
+
+The report keeps diagnostic summaries only: status, node shape, validator result, mismatch summary, privacy summary, amount semantics, and optional verification summary.
+
+### TEST_TEMP_ONLY Writer Helper
+
+The writer helper is test-only and limited to OS temp folders:
+
+- `buildHrcDryRunArtifactFileName`
+- `writeHrcDryRunArtifactReport`
+- `writeHrcDryRunComparisonSummary`
+
+It writes only under `TEST_TEMP_ONLY` scope, rejects repo artifact output, and does not write to `artifacts/hrc-dry-run-reports/`.
+
+### Multiple Artifact Index / Comparison Helper
+
+The index helper summarizes multiple artifact-safe reports:
+
+- `buildHrcDryRunArtifactIndex`
+- `buildHrcDryRunArtifactComparisonRows`
+- `buildHrcDryRunArtifactIndexFileName`
+
+Deterministic sorting policy:
+
+1. `zipFileNameSanitized` ascending
+2. `generatedAt` ascending
+3. `selectedNodeEntry` ascending
+
+Index/comparison summaries include:
+
+- `statusCounts`
+- `validatorPassCount` / `validatorFailCount`
+- `privacySafeCount` / `privacyWarningCount`
+- `mismatchCountTotal` / `mismatchCategories`
+- `warningCountTotal` / `errorCountTotal`
+- `amountUnitCounts`
+- `selectedNodeEntriesSample`
+- `zipFileNamesSample`
+
+### Safety Policy
+
+- Raw path text is not stored.
+- `C:\Users\` path text is not stored.
+- User tokens such as `sample-user` are not stored.
+- Email text is not stored.
+- Raw HRC zip contents are not stored.
+- Long hand strategy payload dumps are not stored.
+- Mismatch samples remain capped.
+- Artifact reports are not product import candidates.
+
+### Amount Semantics
+
+v2.6 keeps HRC amount values uninterpreted:
+
+- `amountUnit: UNKNOWN`
+- `amountInterpretation: RAW_HRC_AMOUNT_UNINTERPRETED`
+- no bb conversion
+- no chip conversion
+
+### v2.6 Limits
+
+- No product import route connection.
+- No new API.
+- No DB migration.
+- No production DB write.
+- No UI.
+- No solver/analyze/fallback product logic change.
+- No actual raw zip import.
+- No repo artifact creation or commit.
+- No raw zip commit.
+- No full raw zip extraction commit.
+- No RTA/live workflow.
+- No OCR / screen capture / overlay / hotkey / live watcher / poker client integration.
+- No Nash / approximate Nash.
+- No PKO / bounty / postflop.
+
 ## v2.5 Real HRC Import Adapter / Dry-Run Intake
 
 v2.5 is a dry-run compatibility stage only. It does not connect real HRC raw zip files to the product import route, API, DB writes, solver logic, analysis logic, fallback logic, or UI.
