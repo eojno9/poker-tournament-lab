@@ -25,6 +25,9 @@ const spot: SpotInput = {
   actionPath: ["HERO_DECISION"]
 };
 
+const fullStrategy = Object.fromEntries(HAND_KEYS.map((hand) => [hand, { action: "FOLD", frequency: 0 }]));
+const fullStrategyShove = Object.fromEntries(HAND_KEYS.map((hand) => [hand, { action: "SHOVE", frequency: 1 }]));
+
 describe("API source routing", () => {
   let database: LabDatabase;
   let baseUrl: string;
@@ -102,6 +105,198 @@ describe("API source routing", () => {
     const listed = await get<{ solutions: Array<{ canonicalKey: string; sourceLabel: string }> }>("/api/solutions");
     expect(listed.solutions).toHaveLength(1);
     expect(listed.solutions[0]?.sourceLabel).toEqual("second HRC");
+  });
+
+  it("returns read-only DB health summary counts", async () => {
+    await post("/api/imports/hrc", {
+      format: "json",
+      sourceLabel: "health import",
+      content: JSON.stringify([{ spot, strategy: { AA: 1 }, sourceLabel: "health HRC" }])
+    });
+
+    const health = await get<{
+      totalSolutions: number;
+      totalStrategyEntries: number;
+      distinctCanonicalKeys: number;
+      duplicateCanonicalKeyCount: number;
+      latestImportStatus: string;
+      latestVerificationStatus: string;
+      latestCanonicalKeyReportStatus: string;
+    }>("/api/db/health");
+
+    expect(health.totalSolutions).toEqual(1);
+    expect(health.totalStrategyEntries).toEqual(169);
+    expect(health.distinctCanonicalKeys).toEqual(1);
+    expect(health.duplicateCanonicalKeyCount).toEqual(0);
+    expect(["available", "missing", "invalid"]).toContain(health.latestImportStatus);
+    expect(["available", "missing", "invalid"]).toContain(health.latestVerificationStatus);
+    expect(["available", "missing", "invalid"]).toContain(health.latestCanonicalKeyReportStatus);
+  });
+
+  it("returns missing DB health report statuses when report files are absent", async () => {
+    const previousCwd = process.cwd();
+    const isolatedCwd = mkdtempSync(join(tmpdir(), "ptl-cwd-"));
+    process.chdir(isolatedCwd);
+    try {
+      const health = await get<{
+        latestImportStatus: string;
+        latestVerificationStatus: string;
+        latestCanonicalKeyReportStatus: string;
+      }>("/api/db/health");
+      expect(health.latestImportStatus).toEqual("missing");
+      expect(health.latestVerificationStatus).toEqual("missing");
+      expect(health.latestCanonicalKeyReportStatus).toEqual("missing");
+    } finally {
+      process.chdir(previousCwd);
+    }
+  });
+
+  it("validates normalized JSON payload as PASS", async () => {
+    const result = await post<{
+      status: string;
+      totalRows: number;
+      failedRows: number;
+      duplicateCanonicalKeyCount: number;
+      errorCount: number;
+      warningCount: number;
+    }>("/api/imports/validate", {
+      format: "json",
+      content: JSON.stringify([{ spot, strategy: fullStrategy }])
+    });
+
+    expect(result.status).toEqual("PASS");
+    expect(result.totalRows).toEqual(1);
+    expect(result.failedRows).toEqual(0);
+    expect(result.duplicateCanonicalKeyCount).toEqual(0);
+    expect(result.errorCount).toEqual(0);
+    expect(result.warningCount).toEqual(0);
+  });
+
+  it("validates normalized CSV payload as PASS", async () => {
+    const csv = [
+      "spot_json,strategy_json",
+      `"${JSON.stringify(spot).replace(/"/g, "\"\"")}","${JSON.stringify(fullStrategy).replace(/"/g, "\"\"")}"`
+    ].join("\n");
+
+    const result = await post<{ status: string; totalRows: number; errorCount: number; warningCount: number }>(
+      "/api/imports/validate",
+      {
+        format: "csv",
+        content: csv
+      }
+    );
+    expect(result.status).toEqual("PASS");
+    expect(result.totalRows).toEqual(1);
+    expect(result.errorCount).toEqual(0);
+    expect(result.warningCount).toEqual(0);
+  });
+
+  it("fails validation on missing required spot fields", async () => {
+    const badSpot = { ...spot };
+    delete (badSpot as Partial<SpotInput>).heroPosition;
+    const result = await post<{
+      status: string;
+      errorCount: number;
+      issues: Array<{ code: string; field: string | null }>;
+    }>("/api/imports/validate", {
+      format: "json",
+      content: JSON.stringify([{ spot: badSpot, strategy: fullStrategy }])
+    });
+
+    expect(result.status).toEqual("FAIL");
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.issues.some((issue) => issue.code === "MISSING_REQUIRED_FIELD" && issue.field === "spot.heroPosition")).toBe(true);
+  });
+
+  it("warns when strategy hand count is not 169", async () => {
+    const result = await post<{
+      status: string;
+      errorCount: number;
+      warningCount: number;
+      issues: Array<{ code: string }>;
+    }>("/api/imports/validate", {
+      format: "json",
+      content: JSON.stringify([{ spot, strategy: { AA: 1 } }])
+    });
+
+    expect(result.status).toEqual("WARN");
+    expect(result.errorCount).toEqual(0);
+    expect(result.warningCount).toBeGreaterThan(0);
+    expect(result.issues.some((issue) => issue.code === "STRATEGY_COUNT_NOT_169")).toBe(true);
+  });
+
+  it("fails when strategy frequency is out of range", async () => {
+    const invalidStrategy = { ...fullStrategy, AA: { action: "SHOVE", frequency: 1.2 } };
+    const result = await post<{
+      status: string;
+      errorCount: number;
+      issues: Array<{ code: string; field: string | null }>;
+    }>("/api/imports/validate", {
+      format: "json",
+      content: JSON.stringify([{ spot, strategy: invalidStrategy }])
+    });
+
+    expect(result.status).toEqual("FAIL");
+    expect(result.errorCount).toBeGreaterThan(0);
+    expect(result.issues.some((issue) => issue.code === "INVALID_FREQUENCY_RANGE" && issue.field?.includes("AA"))).toBe(true);
+  });
+
+  it("shows duplicate canonical key preview for duplicate spots", async () => {
+    const result = await post<{
+      status: string;
+      duplicateCanonicalKeyCount: number;
+      duplicateCanonicalKeyPreview: Array<{ count: number; rowNumbers: number[] }>;
+    }>("/api/imports/validate", {
+      format: "json",
+      content: JSON.stringify([
+        { spot, strategy: fullStrategy },
+        { spot, strategy: fullStrategyShove }
+      ])
+    });
+
+    expect(result.status).toEqual("WARN");
+    expect(result.duplicateCanonicalKeyCount).toEqual(1);
+    expect(result.duplicateCanonicalKeyPreview).toHaveLength(1);
+    expect(result.duplicateCanonicalKeyPreview[0]?.count).toEqual(2);
+    expect(result.duplicateCanonicalKeyPreview[0]?.rowNumbers).toEqual([1, 2]);
+  });
+
+  it("returns same canonical key when spots are equivalent", async () => {
+    const reordered = {
+      ...spot,
+      players: [...spot.players].reverse()
+    };
+    const result = await post<{
+      sameCanonicalKey: boolean;
+      differences: Array<{ field: string }>;
+    }>("/api/canonical-key/diff", {
+      left: spot,
+      right: reordered
+    });
+
+    expect(result.sameCanonicalKey).toBe(true);
+    expect(result.differences).toHaveLength(0);
+  });
+
+  it("returns field-level differences when canonical key differs", async () => {
+    const modified = {
+      ...spot,
+      blinds: { ...spot.blinds, anteBb: 0.2 },
+      players: spot.players.map((player) => (player.seat === 1 ? { ...player, stackBb: 11 } : player))
+    };
+    const result = await post<{
+      sameCanonicalKey: boolean;
+      differences: Array<{ field: string }>;
+      explanation: string[];
+    }>("/api/canonical-key/diff", {
+      left: spot,
+      right: { spot: modified, treeConfig: "open_shove_only" }
+    });
+
+    expect(result.sameCanonicalKey).toBe(false);
+    expect(result.differences.some((item) => item.field === "ante")).toBe(true);
+    expect(result.differences.some((item) => item.field.startsWith("stacks."))).toBe(true);
+    expect(result.explanation.length).toBeGreaterThan(0);
   });
 
   async function post<T = unknown>(path: string, body: unknown): Promise<T> {

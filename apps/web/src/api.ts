@@ -1,6 +1,8 @@
 import type {
   AnalyzeRequest,
   AnalyzeResult,
+  CanonicalDiffInput,
+  CanonicalKeyDiffResult,
   EvSummary,
   HrcDatabaseFeatures,
   HrcImportPayload,
@@ -63,14 +65,23 @@ export interface VerificationReportSummary {
     success: number | null;
     total: number | null;
     successRatePct: number | null;
+    failures: Array<{ id: number | null; reason: string }>;
   };
   randomLookup: {
     success: number | null;
     total: number | null;
     successRatePct: number | null;
+    failures: Array<{ id: number | null; reason: string }>;
   };
   duplicateCanonicalKeyCount: number | null;
   nearMatchFalsePositiveCount: number | null;
+  duplicateCanonicalKeyDetails: Array<{ canonicalKey: string; count: number | null }>;
+  nearMatchFalsePositives: Array<{
+    id: number | null;
+    mutation: string | null;
+    source: string | null;
+    status: number | null;
+  }>;
 }
 
 export interface CanonicalKeyReportSummary {
@@ -84,6 +95,72 @@ export interface LatestReportsSummary {
   importReport: LatestReportEnvelope<ImportReportSummary>;
   verificationReport: LatestReportEnvelope<VerificationReportSummary>;
   canonicalKeyReport: LatestReportEnvelope<CanonicalKeyReportSummary>;
+}
+
+export interface DbHealthSummary {
+  totalSolutions: number;
+  totalStrategyEntries: number;
+  distinctCanonicalKeys: number;
+  duplicateCanonicalKeyCount: number;
+  latestImportStatus: ReportStatus;
+  latestVerificationStatus: ReportStatus;
+  latestCanonicalKeyReportStatus: ReportStatus;
+  exactLookup: {
+    success: number | null;
+    total: number | null;
+    successRatePct: number | null;
+  };
+  randomLookup: {
+    success: number | null;
+    total: number | null;
+    successRatePct: number | null;
+  };
+  nearMatchFalsePositiveCount: number | null;
+  discardedHrczCount: number | null;
+  skippedFileCount: number | null;
+  failedRecordCount: number | null;
+  canonicalKey: {
+    mismatchCount: number | null;
+    updatedCount: number | null;
+    collisionCount: number | null;
+    invalidCount: number | null;
+  };
+}
+
+export type ImportValidationStatus = "PASS" | "WARN" | "FAIL";
+export type ImportValidationSeverity = "error" | "warning";
+
+export interface ImportValidationIssue {
+  rowNumber: number | null;
+  severity: ImportValidationSeverity;
+  code: string;
+  field: string | null;
+  message: string;
+}
+
+export interface DuplicateCanonicalPreview {
+  canonicalKey: string;
+  rowNumbers: number[];
+  count: number;
+}
+
+export interface ImportValidationSummary {
+  status: ImportValidationStatus;
+  format: "json" | "csv";
+  totalRows: number;
+  validRows: number;
+  failedRows: number;
+  errorCount: number;
+  warningCount: number;
+  duplicateCanonicalKeyCount: number;
+  duplicateCanonicalKeyPreview: DuplicateCanonicalPreview[];
+  issues: ImportValidationIssue[];
+  generatedAt: string;
+}
+
+export interface CanonicalKeyDiffRequest {
+  left: SpotInput | CanonicalDiffInput;
+  right: SpotInput | CanonicalDiffInput;
 }
 
 export async function analyzeSpot(request: AnalyzeRequest): Promise<AnalyzeResult> {
@@ -118,6 +195,22 @@ export async function getLatestReportsSummary(): Promise<LatestReportsSummary> {
     throw new Error(await response.text());
   }
   return (await response.json()) as LatestReportsSummary;
+}
+
+export async function getDbHealthSummary(): Promise<DbHealthSummary> {
+  const response = await fetch("/api/db/health");
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as DbHealthSummary;
+}
+
+export async function validateHrcImport(payload: Pick<HrcImportPayload, "format" | "content" | "fileName" | "sourceLabel">): Promise<ImportValidationSummary> {
+  return postJson<ImportValidationSummary>("/api/imports/validate", payload);
+}
+
+export async function diffCanonicalKeys(payload: CanonicalKeyDiffRequest): Promise<CanonicalKeyDiffResult> {
+  return postJson<CanonicalKeyDiffResult>("/api/canonical-key/diff", payload);
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {

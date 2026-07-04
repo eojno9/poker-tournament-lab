@@ -157,10 +157,12 @@ const latestReportsSummary = {
     generatedAt: "2026-06-01T04:21:00.000Z",
     error: null,
     summary: {
-      exactLookup: { success: 262, total: 262, successRatePct: 100 },
-      randomLookup: { success: 20, total: 20, successRatePct: 100 },
+      exactLookup: { success: 262, total: 262, successRatePct: 100, failures: [] },
+      randomLookup: { success: 20, total: 20, successRatePct: 100, failures: [] },
       duplicateCanonicalKeyCount: 0,
-      nearMatchFalsePositiveCount: 0
+      nearMatchFalsePositiveCount: 0,
+      duplicateCanonicalKeyDetails: [],
+      nearMatchFalsePositives: []
     }
   },
   canonicalKeyReport: {
@@ -177,8 +179,93 @@ const latestReportsSummary = {
   }
 };
 
+const dbHealthSummary = {
+  totalSolutions: 262,
+  totalStrategyEntries: 32014,
+  distinctCanonicalKeys: 262,
+  duplicateCanonicalKeyCount: 0,
+  latestImportStatus: "available",
+  latestVerificationStatus: "available",
+  latestCanonicalKeyReportStatus: "available",
+  exactLookup: { success: 262, total: 262, successRatePct: 100 },
+  randomLookup: { success: 20, total: 20, successRatePct: 100 },
+  nearMatchFalsePositiveCount: 0,
+  discardedHrczCount: 3,
+  skippedFileCount: 1,
+  failedRecordCount: 0,
+  canonicalKey: {
+    mismatchCount: 1,
+    updatedCount: 1,
+    collisionCount: 0,
+    invalidCount: 0
+  }
+};
+
+const importValidationSummary = {
+  status: "WARN",
+  format: "json",
+  totalRows: 3,
+  validRows: 2,
+  failedRows: 1,
+  errorCount: 1,
+  warningCount: 2,
+  duplicateCanonicalKeyCount: 1,
+  duplicateCanonicalKeyPreview: [
+    {
+      canonicalKey: "{\"actionPath\":[\"FOLD\",\"HERO_DECISION\"]}",
+      rowNumbers: [1, 2],
+      count: 2
+    }
+  ],
+  issues: [
+    {
+      rowNumber: 3,
+      severity: "error",
+      code: "INVALID_FREQUENCY_RANGE",
+      field: "strategy.AA.frequency",
+      message: "frequency must be within 0 and 1"
+    },
+    {
+      rowNumber: 1,
+      severity: "warning",
+      code: "STRATEGY_COUNT_NOT_169",
+      field: "strategy",
+      message: "strategy contains 120 hand keys (expected 169)."
+    }
+  ],
+  generatedAt: "2026-06-01T04:25:00.000Z"
+};
+
+const canonicalDiffResponse = {
+  sameCanonicalKey: false,
+  leftCanonicalKey: "left-canonical-key",
+  rightCanonicalKey: "right-canonical-key",
+  differences: [
+    {
+      field: "ante",
+      left: 0.1,
+      right: 0.2,
+      severity: "key_affecting"
+    },
+    {
+      field: "stacks.BTN",
+      left: 18,
+      right: 19,
+      severity: "key_affecting"
+    }
+  ],
+  explanation: ["ante 값이 달라 canonical key가 달라졌습니다.", "BTN stack 값이 달라 canonical key가 달라졌습니다."]
+};
+
 test.describe("v1.2 smoke", () => {
   test.beforeEach(async ({ page }) => {
+    await page.route("**/api/imports/validate", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(importValidationSummary)
+      });
+    });
     await page.route("**/api/imports*", async (route) => {
       await route.fulfill({
         status: 200,
@@ -207,6 +294,20 @@ test.describe("v1.2 smoke", () => {
         body: JSON.stringify(latestReportsSummary)
       });
     });
+    await page.route("**/api/db/health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(dbHealthSummary)
+      });
+    });
+    await page.route("**/api/canonical-key/diff", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(canonicalDiffResponse)
+      });
+    });
   });
 
   test("renders tabs and import report cards", async ({ page }) => {
@@ -229,11 +330,30 @@ test.describe("v1.2 smoke", () => {
     await tabs.getByRole("button", { name: "Import", exact: true }).click();
     await expect(page.getByRole("heading", { name: /HRC DB Import/i })).toBeVisible();
     await expect(page.getByTestId("import-report-summary-card")).toBeVisible();
+    await expect(page.getByTestId("db-health-summary-card")).toBeVisible();
     await expect(page.getByTestId("verification-report-summary-card")).toBeVisible();
+    await expect(page.getByTestId("verification-report-detail-card")).toBeVisible();
     await expect(page.getByTestId("canonical-report-summary-card")).toBeVisible();
+    await expect(page.getByTestId("report-status-verification-report-summary-card")).toContainText("정상");
+    await expect(page.getByText("DB Health")).toBeVisible();
     await expect(page.getByText("latest-import-report.json")).toBeVisible();
     await expect(page.getByText("latest-verification-report.json")).toBeVisible();
     await expect(page.getByText("latest-canonical-key-report.json")).toBeVisible();
+    await expect(page.getByTestId("verification-report-summary-card")).toContainText("262/262 (100.00%)");
+    await expect(page.getByTestId("verification-report-summary-card")).toContainText("20/20 (100.00%)");
+    await expect(page.getByTestId("verification-report-summary-card")).toContainText("near-match HRC 오탐");
+    await expect(page.getByTestId("verification-report-detail-card")).toContainText("문제 없음");
+    await expect(page.getByTestId("import-validation-summary-card")).toBeVisible();
+    await expect(page.getByTestId("canonical-diff-card")).toBeVisible();
+    await expect(page.getByTestId("canonical-diff-run-button")).toBeVisible();
+    await page.getByTestId("canonical-diff-run-button").click();
+    await expect(page.getByTestId("canonical-diff-card")).toContainText("left-canonical-key");
+    await expect(page.getByTestId("canonical-diff-card")).toContainText("right-canonical-key");
+    await expect(page.getByTestId("canonical-diff-card")).toContainText("ante");
+    await expect(page.getByTestId("canonical-diff-card")).toContainText("BTN stack");
+    await expect(page.getByTestId("import-validate-button")).toBeVisible();
+    await page.getByTestId("import-validate-button").click();
+    await expect(page.getByTestId("import-validation-summary-card")).toContainText("WARN");
 
     await tabs.getByRole("button", { name: "Database", exact: true }).click();
     await expect(page.getByRole("heading", { name: /^Imports$/ })).toBeVisible();
@@ -355,9 +475,32 @@ test.describe("v1.2 smoke", () => {
         })
       });
     });
+    await page.route("**/api/db/health", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalSolutions: 0,
+          totalStrategyEntries: 0,
+          distinctCanonicalKeys: 0,
+          duplicateCanonicalKeyCount: 0,
+          latestImportStatus: "missing",
+          latestVerificationStatus: "missing",
+          latestCanonicalKeyReportStatus: "missing",
+          exactLookup: { success: null, total: null, successRatePct: null },
+          randomLookup: { success: null, total: null, successRatePct: null },
+          nearMatchFalsePositiveCount: null,
+          discardedHrczCount: null,
+          skippedFileCount: null,
+          failedRecordCount: null,
+          canonicalKey: { mismatchCount: null, updatedCount: null, collisionCount: null, invalidCount: null }
+        })
+      });
+    });
 
     await page.goto("/");
     await page.getByRole("button", { name: /Import/i }).click();
+    await expect(page.getByTestId("db-health-summary-card")).toBeVisible();
     await expect(page.getByTestId("import-report-summary-card")).toBeVisible();
     await expect(page.getByText("latest-import-report.json")).toBeVisible();
     await expect(page.getByText("latest-verification-report.json")).toBeVisible();

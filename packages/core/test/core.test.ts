@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   HAND_KEYS,
   RESULT_SOURCES,
+  diffCanonicalInputs,
   calculateIcm,
   canonicalSpotKey,
   classifyHrcDatabaseFile,
@@ -34,6 +35,93 @@ describe("canonical spot keys", () => {
   it("are stable for player order after normalization", () => {
     const shuffled = { ...completeSpot, players: [...completeSpot.players].reverse() };
     expect(canonicalSpotKey(shuffled)).toEqual(canonicalSpotKey(completeSpot));
+  });
+});
+
+describe("canonical key diff viewer", () => {
+  it("returns sameCanonicalKey=true for identical spots", () => {
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: completeSpot });
+    expect(result.sameCanonicalKey).toBe(true);
+    expect(result.differences).toHaveLength(0);
+  });
+
+  it("keeps sameCanonicalKey=true when only field order differs", () => {
+    const reorderedSpot: SpotInput = {
+      tournamentType: completeSpot.tournamentType,
+      gameType: completeSpot.gameType,
+      decisionType: completeSpot.decisionType,
+      tableSize: completeSpot.tableSize,
+      heroPosition: completeSpot.heroPosition,
+      heroSeat: completeSpot.heroSeat,
+      potBb: completeSpot.potBb,
+      street: completeSpot.street,
+      blinds: {
+        bigBb: completeSpot.blinds.bigBb,
+        anteBb: completeSpot.blinds.anteBb,
+        smallBb: completeSpot.blinds.smallBb
+      },
+      payouts: [...completeSpot.payouts],
+      actionPath: [...completeSpot.actionPath],
+      players: [...completeSpot.players].map((player) => ({
+        stackBb: player.stackBb,
+        position: player.position,
+        seat: player.seat,
+        inHand: player.inHand,
+        isHero: player.isHero,
+        rangePreset: player.rangePreset,
+        callRangePct: player.callRangePct
+      }))
+    };
+
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: reorderedSpot });
+    expect(result.sameCanonicalKey).toBe(true);
+    expect(result.differences).toHaveLength(0);
+  });
+
+  it("detects stack differences", () => {
+    const modified = {
+      ...completeSpot,
+      players: completeSpot.players.map((player) => (player.seat === 1 ? { ...player, stackBb: 10.1 } : player))
+    };
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: modified });
+    expect(result.sameCanonicalKey).toBe(false);
+    expect(result.differences.some((difference) => difference.field.startsWith("stacks."))).toBe(true);
+  });
+
+  it("detects ante differences", () => {
+    const modified = {
+      ...completeSpot,
+      blinds: { ...completeSpot.blinds, anteBb: 0.2 }
+    };
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: modified });
+    expect(result.differences.some((difference) => difference.field === "ante")).toBe(true);
+  });
+
+  it("detects payout differences", () => {
+    const modified = {
+      ...completeSpot,
+      payouts: [500, 250, 50]
+    };
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: modified });
+    expect(result.differences.some((difference) => difference.field === "payouts")).toBe(true);
+  });
+
+  it("detects action path differences", () => {
+    const modified = {
+      ...completeSpot,
+      actionPath: ["FOLD", "HERO_DECISION"]
+    };
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: modified });
+    expect(result.differences.some((difference) => difference.field === "actionPath")).toBe(true);
+  });
+
+  it("detects hero position differences", () => {
+    const modified = {
+      ...completeSpot,
+      heroPosition: "CO"
+    };
+    const result = diffCanonicalInputs({ spot: completeSpot }, { spot: modified });
+    expect(result.differences.some((difference) => difference.field === "heroPosition")).toBe(true);
   });
 });
 

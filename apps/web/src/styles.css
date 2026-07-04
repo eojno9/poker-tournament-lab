@@ -329,6 +329,19 @@ textarea.compact-textarea {
   opacity: 0.68;
 }
 
+.import-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.canonical-diff-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .icon-button {
   width: 36px;
   height: 36px;
@@ -839,6 +852,7 @@ textarea.compact-textarea {
 
   .form-grid,
   .import-grid,
+  .canonical-diff-grid,
   .payout-grid,
   .info-grid,
   .solution-row,

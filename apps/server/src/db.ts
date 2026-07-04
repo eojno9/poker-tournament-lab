@@ -74,6 +74,13 @@ export interface CanonicalKeyReconcileReport {
   entries: CanonicalKeyReconcileEntry[];
 }
 
+export interface DbHealthCounts {
+  totalSolutions: number;
+  totalStrategyEntries: number;
+  distinctCanonicalKeys: number;
+  duplicateCanonicalKeyCount: number;
+}
+
 export class LabDatabase {
   private readonly db: DatabaseSync;
 
@@ -233,6 +240,59 @@ export class LabDatabase {
       createdAt: row.created_at,
       databaseFeatures: parseFeatures(row.metadata_json)
     }));
+  }
+
+  getHealthCounts(): DbHealthCounts {
+    const totalsRow = this.db
+      .prepare(
+        `SELECT
+          COUNT(*) AS total_solutions,
+          COUNT(DISTINCT canonical_key) AS distinct_canonical_keys
+        FROM solutions`
+      )
+      .get() as { total_solutions: number; distinct_canonical_keys: number };
+
+    const duplicateRow = this.db
+      .prepare(
+        `SELECT
+          COALESCE(SUM(duplicate_count), 0) AS duplicate_canonical_key_count
+        FROM (
+          SELECT COUNT(*) - 1 AS duplicate_count
+          FROM solutions
+          GROUP BY canonical_key
+          HAVING COUNT(*) > 1
+        )`
+      )
+      .get() as { duplicate_canonical_key_count: number | null };
+
+    let totalStrategyEntries = 0;
+    try {
+      const strategyRow = this.db
+        .prepare(
+          `SELECT
+            COALESCE(SUM((SELECT COUNT(*) FROM json_each(strategy_json))), 0) AS total_strategy_entries
+          FROM solutions`
+        )
+        .get() as { total_strategy_entries: number | null };
+      totalStrategyEntries = Number(strategyRow.total_strategy_entries ?? 0);
+    } catch {
+      const rows = this.db.prepare(`SELECT strategy_json FROM solutions`).all() as Array<{ strategy_json: string }>;
+      totalStrategyEntries = rows.reduce((sum, row) => {
+        try {
+          const strategy = JSON.parse(row.strategy_json) as Record<string, unknown>;
+          return sum + Object.keys(strategy).length;
+        } catch {
+          return sum;
+        }
+      }, 0);
+    }
+
+    return {
+      totalSolutions: Number(totalsRow.total_solutions ?? 0),
+      totalStrategyEntries: Number(totalStrategyEntries ?? 0),
+      distinctCanonicalKeys: Number(totalsRow.distinct_canonical_keys ?? 0),
+      duplicateCanonicalKeyCount: Number(duplicateRow.duplicate_canonical_key_count ?? 0)
+    };
   }
 
   reconcileCanonicalKeys(options: { apply?: boolean } = {}): CanonicalKeyReconcileReport {

@@ -112,6 +112,28 @@ export interface AnalyzeRequest {
   };
 }
 
+export interface CanonicalDiffInput {
+  spot: SpotInput;
+  treeConfig?: string | null;
+}
+
+export type CanonicalDiffSeverity = "key_affecting";
+
+export interface CanonicalKeyDifference {
+  field: string;
+  left: unknown;
+  right: unknown;
+  severity: CanonicalDiffSeverity;
+}
+
+export interface CanonicalKeyDiffResult {
+  sameCanonicalKey: boolean;
+  leftCanonicalKey: string;
+  rightCanonicalKey: string;
+  differences: CanonicalKeyDifference[];
+  explanation: string[];
+}
+
 export type FallbackPresetName = RangePreset | "custom";
 export type FallbackRangeSource = "preset" | "user_override";
 

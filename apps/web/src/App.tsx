@@ -17,6 +17,8 @@ import {
 import {
   HAND_KEYS,
   RESULT_SOURCES,
+  type CanonicalDiffInput,
+  type CanonicalKeyDiffResult,
   type AnalyzeRequest,
   type AnalyzeResult,
   type HrcDatabaseFeatures,
@@ -26,11 +28,18 @@ import {
 } from "@poker-tournament-lab/core";
 import {
   analyzeSpot,
+  diffCanonicalKeys,
+  getDbHealthSummary,
   getLatestReportsSummary,
   importHrc,
   listImports,
   listSolutions,
+  validateHrcImport,
+  type DbHealthSummary,
   type CanonicalKeyReportSummary,
+  type DuplicateCanonicalPreview,
+  type ImportValidationIssue,
+  type ImportValidationSummary,
   type ImportReportSummary,
   type ImportResponse,
   type LatestReportEnvelope,
@@ -1028,16 +1037,28 @@ function ImportView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState<LatestReportsSummary | null>(null);
+  const [dbHealth, setDbHealth] = useState<DbHealthSummary | null>(null);
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [reportsLoading, setReportsLoading] = useState(false);
+  const [validation, setValidation] = useState<ImportValidationSummary | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [leftDiffText, setLeftDiffText] = useState(() => JSON.stringify(defaultSpot, null, 2));
+  const [rightDiffText, setRightDiffText] = useState(() => JSON.stringify(defaultSpot, null, 2));
+  const [diffResult, setDiffResult] = useState<CanonicalKeyDiffResult | null>(null);
+  const [diffError, setDiffError] = useState<string | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
 
   async function loadReports() {
     setReportsLoading(true);
     setReportsError(null);
     try {
-      setReports(await getLatestReportsSummary());
+      const [latestReports, healthSummary] = await Promise.all([getLatestReportsSummary(), getDbHealthSummary()]);
+      setReports(latestReports);
+      setDbHealth(healthSummary);
     } catch (caught) {
       setReportsError(caught instanceof Error ? caught.message : "리포트 조회에 실패했습니다.");
+      setDbHealth(null);
     } finally {
       setReportsLoading(false);
     }
@@ -1058,6 +1079,36 @@ function ImportView() {
       setLoading(false);
     }
     void loadReports();
+  }
+
+  async function runValidation() {
+    setValidationLoading(true);
+    setValidationError(null);
+    try {
+      const summary = await validateHrcImport({ format, content, fileName, sourceLabel });
+      setValidation(summary);
+    } catch (caught) {
+      setValidation(null);
+      setValidationError(caught instanceof Error ? caught.message : "검증 실행에 실패했습니다.");
+    } finally {
+      setValidationLoading(false);
+    }
+  }
+
+  async function runCanonicalDiff() {
+    setDiffLoading(true);
+    setDiffError(null);
+    try {
+      const left = parseCanonicalDiffText(leftDiffText, "left");
+      const right = parseCanonicalDiffText(rightDiffText, "right");
+      const result = await diffCanonicalKeys({ left, right });
+      setDiffResult(result);
+    } catch (caught) {
+      setDiffResult(null);
+      setDiffError(caught instanceof Error ? caught.message : "canonical diff 실행에 실패했습니다.");
+    } finally {
+      setDiffLoading(false);
+    }
   }
 
   return (
@@ -1101,11 +1152,24 @@ function ImportView() {
           </label>
         </div>
         <textarea value={content} onChange={(event) => setContent(event.target.value)} spellCheck={false} />
-        <button className="primary-action" onClick={submitImport} type="button" disabled={loading}>
-          {loading ? <Loader2 className="spin" size={18} /> : <FileUp size={18} />}
-          Import 저장
-        </button>
+        <div className="import-actions">
+          <button className="primary-action" onClick={submitImport} type="button" disabled={loading}>
+            {loading ? <Loader2 className="spin" size={18} /> : <FileUp size={18} />}
+            Import 저장
+          </button>
+          <button
+            className="preset-action"
+            data-testid="import-validate-button"
+            onClick={() => void runValidation()}
+            type="button"
+            disabled={validationLoading}
+          >
+            {validationLoading ? <Loader2 className="spin" size={14} /> : <BadgeCheck size={14} />}
+            Import 검증
+          </button>
+        </div>
         {error && <p className="error-text">{error}</p>}
+        {validationError && <p className="error-text">{validationError}</p>}
         {response && (
           <div className="notice success">
             <p>import #{response.import.id} 저장 완료</p>
@@ -1114,19 +1178,32 @@ function ImportView() {
             {response.import.databaseFeatures && <FeatureChips features={response.import.databaseFeatures} />}
           </div>
         )}
+        <ImportValidationCard summary={validation} loading={validationLoading} />
+        <CanonicalKeyDiffPanel
+          leftText={leftDiffText}
+          rightText={rightDiffText}
+          onChangeLeft={setLeftDiffText}
+          onChangeRight={setRightDiffText}
+          onRun={() => void runCanonicalDiff()}
+          loading={diffLoading}
+          error={diffError}
+          result={diffResult}
+        />
       </div>
-      <ImportReportsPanel reports={reports} loading={reportsLoading} error={reportsError} onRefresh={loadReports} />
+      <ImportReportsPanel reports={reports} dbHealth={dbHealth} loading={reportsLoading} error={reportsError} onRefresh={loadReports} />
     </section>
   );
 }
 
 function ImportReportsPanel({
   reports,
+  dbHealth,
   loading,
   error,
   onRefresh
 }: {
   reports: LatestReportsSummary | null;
+  dbHealth: DbHealthSummary | null;
   loading: boolean;
   error: string | null;
   onRefresh: () => Promise<void>;
@@ -1148,6 +1225,42 @@ function ImportReportsPanel({
       {error && <p className="error-text">{error}</p>}
 
       <div className="report-grid">
+        <ReportCard
+          testId="db-health-summary-card"
+          title="DB Health"
+          badge={badgeForDbHealth(dbHealth)}
+          generatedAt={reports?.verificationReport.generatedAt ?? null}
+        >
+          {!dbHealth ? (
+            <p className="muted">아직 import 검증 리포트가 없습니다.</p>
+          ) : (
+            <div className="detail-grid">
+              <ResultDetailItem label="total solutions" value={formatCount(dbHealth.totalSolutions)} />
+              <ResultDetailItem label="total strategy entries" value={formatCount(dbHealth.totalStrategyEntries)} />
+              <ResultDetailItem label="distinct canonical keys" value={formatCount(dbHealth.distinctCanonicalKeys)} />
+              <ResultDetailItem label="duplicate canonical key count" value={formatCount(dbHealth.duplicateCanonicalKeyCount)} />
+              <ResultDetailItem label="latest import status" value={formatReportStatus(dbHealth.latestImportStatus)} />
+              <ResultDetailItem label="latest verification status" value={formatReportStatus(dbHealth.latestVerificationStatus)} />
+              <ResultDetailItem
+                label="exact lookup 성공률"
+                value={formatRate(dbHealth.exactLookup.success, dbHealth.exactLookup.total, dbHealth.exactLookup.successRatePct)}
+              />
+              <ResultDetailItem
+                label="random lookup 성공률"
+                value={formatRate(dbHealth.randomLookup.success, dbHealth.randomLookup.total, dbHealth.randomLookup.successRatePct)}
+              />
+              <ResultDetailItem label="near-match HRC 오탐 수" value={formatCount(dbHealth.nearMatchFalsePositiveCount)} />
+              <ResultDetailItem label="discarded hrcz count" value={formatCount(dbHealth.discardedHrczCount)} />
+              <ResultDetailItem label="skipped file count" value={formatCount(dbHealth.skippedFileCount)} />
+              <ResultDetailItem label="failed record count" value={formatFailedRecords(dbHealth.failedRecordCount)} />
+              <ResultDetailItem
+                label="latest canonical key report status"
+                value={formatReportStatus(dbHealth.latestCanonicalKeyReportStatus)}
+              />
+            </div>
+          )}
+        </ReportCard>
+
         <ReportCard
           testId="import-report-summary-card"
           title="latest-import-report.json"
@@ -1206,6 +1319,19 @@ function ImportReportsPanel({
         </ReportCard>
 
         <ReportCard
+          testId="verification-report-detail-card"
+          title="Verification 상세"
+          badge={badgeForVerificationReport(verificationReport)}
+          generatedAt={verificationReport?.generatedAt ?? null}
+        >
+          {verificationReport?.status !== "available" || !verificationReport.summary ? (
+            <p className="muted">{missingReportMessage(verificationReport?.status)}</p>
+          ) : (
+            <VerificationDetailSection summary={verificationReport.summary} />
+          )}
+        </ReportCard>
+
+        <ReportCard
           testId="canonical-report-summary-card"
           title="latest-canonical-key-report.json"
           badge={badgeForCanonicalReport(canonicalReport)}
@@ -1223,6 +1349,193 @@ function ImportReportsPanel({
           )}
         </ReportCard>
       </div>
+    </div>
+  );
+}
+
+function ImportValidationCard({ summary, loading }: { summary: ImportValidationSummary | null; loading: boolean }) {
+  return (
+    <div className="result-block report-card" data-testid="import-validation-summary-card">
+      <div className="report-card-header">
+        <h3>Import Validation</h3>
+        <span className={`report-status-badge ${badgeToneForValidation(summary?.status ?? null)}`}>
+          {labelForValidationStatus(summary?.status ?? null)}
+        </span>
+      </div>
+      {loading ? <p className="muted">검증 중...</p> : null}
+      {!loading && !summary ? <p className="muted">검증 리포트 없음</p> : null}
+      {summary ? (
+        <>
+          <p className="muted">생성 시각: {new Date(summary.generatedAt).toLocaleString("ko-KR")}</p>
+          <div className="detail-grid">
+            <ResultDetailItem label="status" value={summary.status} />
+            <ResultDetailItem label="format" value={summary.format} />
+            <ResultDetailItem label="total rows" value={formatCount(summary.totalRows)} />
+            <ResultDetailItem label="valid rows" value={formatCount(summary.validRows)} />
+            <ResultDetailItem label="failed rows" value={formatCount(summary.failedRows)} />
+            <ResultDetailItem label="warning rows" value={formatCount(summary.warningCount)} />
+            <ResultDetailItem label="error rows" value={formatCount(summary.errorCount)} />
+            <ResultDetailItem label="duplicate canonical keys" value={formatCount(summary.duplicateCanonicalKeyCount)} />
+          </div>
+          <ImportValidationDetails duplicatePreview={summary.duplicateCanonicalKeyPreview} issues={summary.issues} />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportValidationDetails({
+  duplicatePreview,
+  issues
+}: {
+  duplicatePreview: DuplicateCanonicalPreview[];
+  issues: ImportValidationIssue[];
+}) {
+  const warnings = issues.filter((issue) => issue.severity === "warning");
+  const errors = issues.filter((issue) => issue.severity === "error");
+  return (
+    <div className="info-grid">
+      <div className="info-list">
+        <h3>Duplicate canonical key preview</h3>
+        {duplicatePreview.length === 0 ? (
+          <p className="muted">제공되지 않음</p>
+        ) : (
+          duplicatePreview.slice(0, 20).map((item) => (
+            <p key={`${item.canonicalKey}:${item.count}`}>
+              {item.canonicalKey.slice(0, 80)}... (rows: {item.rowNumbers.join(", ")})
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>실패 있음 (error)</h3>
+        {errors.length === 0 ? (
+          <p className="muted">없음</p>
+        ) : (
+          errors.slice(0, 30).map((issue, index) => (
+            <p key={`${issue.code}:${issue.rowNumber ?? "none"}:${index}`}>
+              {formatIssueRow(issue.rowNumber)} {issue.code}: {issue.message}
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>주의 필요 (warning)</h3>
+        {warnings.length === 0 ? (
+          <p className="muted">없음</p>
+        ) : (
+          warnings.slice(0, 30).map((issue, index) => (
+            <p key={`${issue.code}:${issue.rowNumber ?? "none"}:${index}`}>
+              {formatIssueRow(issue.rowNumber)} {issue.code}: {issue.message}
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>validation notes</h3>
+        <p>Import 저장 없이 검증만 수행합니다.</p>
+        <p>값이 없으면 "제공되지 않음"으로 표시됩니다.</p>
+      </div>
+    </div>
+  );
+}
+
+function CanonicalKeyDiffPanel({
+  leftText,
+  rightText,
+  onChangeLeft,
+  onChangeRight,
+  onRun,
+  loading,
+  error,
+  result
+}: {
+  leftText: string;
+  rightText: string;
+  onChangeLeft: (value: string) => void;
+  onChangeRight: (value: string) => void;
+  onRun: () => void;
+  loading: boolean;
+  error: string | null;
+  result: CanonicalKeyDiffResult | null;
+}) {
+  return (
+    <div className="result-block report-card" data-testid="canonical-diff-card">
+      <div className="report-card-header">
+        <h3>Canonical Key Diff</h3>
+        <span className="muted">추천 기능이 아닌 차이 설명 도구</span>
+      </div>
+      <div className="canonical-diff-grid">
+        <label>
+          Left spot JSON
+          <textarea
+            className="compact-textarea"
+            value={leftText}
+            onChange={(event) => onChangeLeft(event.target.value)}
+            spellCheck={false}
+            aria-label="canonical diff left json"
+          />
+        </label>
+        <label>
+          Right spot JSON
+          <textarea
+            className="compact-textarea"
+            value={rightText}
+            onChange={(event) => onChangeRight(event.target.value)}
+            spellCheck={false}
+            aria-label="canonical diff right json"
+          />
+        </label>
+      </div>
+      <div className="import-actions">
+        <button className="preset-action" data-testid="canonical-diff-run-button" type="button" onClick={onRun} disabled={loading}>
+          {loading ? <Loader2 className="spin" size={14} /> : <Search size={14} />}
+          비교 실행
+        </button>
+      </div>
+      {error ? <p className="error-text">{error}</p> : null}
+      {!error && !result ? <p className="muted">비교 결과 없음</p> : null}
+      {result ? (
+        <>
+          <div className="detail-grid">
+            <ResultDetailItem label="same canonical key" value={result.sameCanonicalKey ? "같음" : "다름"} />
+            <ResultDetailItem label="difference count" value={formatCount(result.differences.length)} />
+          </div>
+          <div className="result-block">
+            <h3>Canonical Keys</h3>
+            <p>
+              <strong>left</strong>
+            </p>
+            <code>{result.leftCanonicalKey}</code>
+            <p>
+              <strong>right</strong>
+            </p>
+            <code>{result.rightCanonicalKey}</code>
+          </div>
+          <div className="info-grid">
+            <div className="info-list">
+              <h3>필드 차이</h3>
+              {result.differences.length === 0 ? (
+                <p className="muted">없음</p>
+              ) : (
+                result.differences.map((difference, index) => (
+                  <p key={`${difference.field}:${index}`}>
+                    {difference.field}: {readUnknownValue(difference.left)} → {readUnknownValue(difference.right)} ({difference.severity})
+                  </p>
+                ))
+              )}
+            </div>
+            <div className="info-list">
+              <h3>한국어 설명</h3>
+              {result.explanation.length === 0 ? (
+                <p className="muted">제공되지 않음</p>
+              ) : (
+                result.explanation.map((item, index) => <p key={`${item}:${index}`}>{item}</p>)
+              )}
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1288,6 +1601,72 @@ function ReportImportDetails({ summary }: { summary: ImportReportSummary }) {
       <div className="info-list">
         <h3>실패 상태</h3>
         <p>{formatFailedRecords(summary.failedRecords)}</p>
+      </div>
+    </div>
+  );
+}
+
+function VerificationDetailSection({ summary }: { summary: VerificationReportSummary }) {
+  const exactFailures = summary.exactLookup.failures ?? [];
+  const randomFailures = summary.randomLookup.failures ?? [];
+  const duplicateDetails = summary.duplicateCanonicalKeyDetails ?? [];
+  const nearFalsePositives = summary.nearMatchFalsePositives ?? [];
+
+  return (
+    <div className="info-grid">
+      <div className="info-list">
+        <h3>Exact lookup 실패 목록</h3>
+        {exactFailures.length === 0 ? (
+          <p className="muted">문제 없음</p>
+        ) : (
+          exactFailures.map((failure, index) => (
+            <p key={`exact-failure-${index}`}>
+              {failure.id ? `id ${failure.id}: ` : ""}
+              {failure.reason}
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>Random lookup 실패 목록</h3>
+        {randomFailures.length === 0 ? (
+          <p className="muted">문제 없음</p>
+        ) : (
+          randomFailures.map((failure, index) => (
+            <p key={`random-failure-${index}`}>
+              {failure.id ? `id ${failure.id}: ` : ""}
+              {failure.reason}
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>Duplicate canonical key</h3>
+        {(summary.duplicateCanonicalKeyCount ?? 0) === 0 ? (
+          <p className="muted">문제 없음</p>
+        ) : duplicateDetails.length === 0 ? (
+          <p>count: {formatCount(summary.duplicateCanonicalKeyCount)} / 상세: 제공되지 않음</p>
+        ) : (
+          duplicateDetails.map((item, index) => (
+            <p key={`duplicate-key-${index}`}>
+              {item.canonicalKey.slice(0, 80)}... (count: {formatCount(item.count)})
+            </p>
+          ))
+        )}
+      </div>
+      <div className="info-list">
+        <h3>Near-match HRC false positive</h3>
+        {(summary.nearMatchFalsePositiveCount ?? 0) === 0 ? (
+          <p className="muted">문제 없음</p>
+        ) : nearFalsePositives.length === 0 ? (
+          <p>count: {formatCount(summary.nearMatchFalsePositiveCount)} / 상세: 제공되지 않음</p>
+        ) : (
+          nearFalsePositives.map((item, index) => (
+            <p key={`near-fp-${index}`}>
+              id {item.id ?? "제공되지 않음"} / mutation {item.mutation ?? "제공되지 않음"} / source {item.source ?? "제공되지 않음"}
+            </p>
+          ))
+        )}
       </div>
     </div>
   );
@@ -1675,6 +2054,30 @@ function readUnknownValue(value: unknown): string {
   }
 }
 
+function parseCanonicalDiffText(raw: string, side: "left" | "right"): SpotInput | CanonicalDiffInput {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`${side} JSON 파싱 실패: ${error instanceof Error ? error.message : "unknown error"}`);
+  }
+  const record = toRecord(parsed);
+  if (!record) {
+    throw new Error(`${side} 입력은 JSON 객체여야 합니다.`);
+  }
+  if ("spot" in record) {
+    const spotRecord = toRecord(record.spot);
+    if (!spotRecord) {
+      throw new Error(`${side}.spot은 객체여야 합니다.`);
+    }
+    return {
+      spot: record.spot as SpotInput,
+      ...(typeof record.treeConfig === "string" ? { treeConfig: record.treeConfig } : {})
+    };
+  }
+  return parsed as SpotInput;
+}
+
 function buildCatalogItem(solution: SolutionListItem): SolutionCatalogItem {
   const spot = solution.spot;
   const heroStackBb = findHeroStack(spot);
@@ -1806,6 +2209,13 @@ function formatFailedRecords(value: number | null): string {
   return `${value.toLocaleString("ko-KR")} 건`;
 }
 
+function formatIssueRow(rowNumber: number | null): string {
+  if (typeof rowNumber !== "number" || !Number.isFinite(rowNumber)) {
+    return "[global]";
+  }
+  return `[row ${rowNumber}]`;
+}
+
 function formatRate(success: number | null, total: number | null, ratePct: number | null): string {
   if (
     typeof success !== "number" ||
@@ -1825,6 +2235,81 @@ function missingReportMessage(status: LatestReportEnvelope<unknown>["status"] | 
     return "리포트 파일을 읽을 수 없습니다.";
   }
   return "아직 import 검증 리포트가 없습니다.";
+}
+
+function formatReportStatus(status: LatestReportEnvelope<unknown>["status"] | null): string {
+  if (status === "available") {
+    return "정상";
+  }
+  if (status === "invalid") {
+    return "실패 있음";
+  }
+  if (status === "missing") {
+    return "리포트 없음";
+  }
+  return "제공되지 않음";
+}
+
+function labelForValidationStatus(status: ImportValidationSummary["status"] | null): string {
+  if (status === "PASS") {
+    return "정상";
+  }
+  if (status === "WARN") {
+    return "주의 필요";
+  }
+  if (status === "FAIL") {
+    return "실패 있음";
+  }
+  return "검증 리포트 없음";
+}
+
+function badgeToneForValidation(status: ImportValidationSummary["status"] | null): ReportBadgeTone {
+  if (status === "PASS") {
+    return "ok";
+  }
+  if (status === "WARN") {
+    return "warn";
+  }
+  if (status === "FAIL") {
+    return "fail";
+  }
+  return "missing";
+}
+
+function badgeForDbHealth(summary: DbHealthSummary | null): ReportBadge {
+  if (!summary) {
+    return { tone: "missing", label: "리포트 없음" };
+  }
+  if (
+    summary.latestImportStatus === "invalid" ||
+    summary.latestVerificationStatus === "invalid" ||
+    summary.latestCanonicalKeyReportStatus === "invalid" ||
+    (summary.failedRecordCount ?? 0) > 0 ||
+    (summary.canonicalKey.collisionCount ?? 0) > 0 ||
+    (summary.canonicalKey.invalidCount ?? 0) > 0
+  ) {
+    return { tone: "fail", label: "실패 있음" };
+  }
+  const exactIncomplete =
+    typeof summary.exactLookup.success === "number" &&
+    typeof summary.exactLookup.total === "number" &&
+    summary.exactLookup.success < summary.exactLookup.total;
+  const randomIncomplete =
+    typeof summary.randomLookup.success === "number" &&
+    typeof summary.randomLookup.total === "number" &&
+    summary.randomLookup.success < summary.randomLookup.total;
+  if (
+    (summary.duplicateCanonicalKeyCount ?? 0) > 0 ||
+    (summary.nearMatchFalsePositiveCount ?? 0) > 0 ||
+    (summary.skippedFileCount ?? 0) > 0 ||
+    (summary.discardedHrczCount ?? 0) > 0 ||
+    (summary.canonicalKey.mismatchCount ?? 0) > 0 ||
+    exactIncomplete ||
+    randomIncomplete
+  ) {
+    return { tone: "warn", label: "주의 필요" };
+  }
+  return { tone: "ok", label: "정상" };
 }
 
 function badgeForImportReport(report: LatestReportEnvelope<ImportReportSummary> | null): ReportBadge {
