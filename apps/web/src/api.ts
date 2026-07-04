@@ -169,6 +169,72 @@ export interface CanonicalKeyDiffRequest {
   right: SpotInput | CanonicalDiffInput;
 }
 
+export type HrcDryRunArtifactKind = "REPORT" | "INDEX" | "COMPARISON" | "UNKNOWN";
+
+export interface HrcDryRunArtifactSafetySummary {
+  readOnly: true;
+  dbWriteApplied: false;
+  productImportConnected: false;
+  batchRunnerExecuted: false;
+  rawZipRead: false;
+  uiUsed: false;
+}
+
+export interface HrcDryRunArtifactSafetyFlags {
+  rawZipCommitted: boolean | null;
+  productImportConnected: boolean | null;
+  dbWriteApplied: boolean | null;
+  apiUsed: boolean | null;
+  uiUsed: boolean | null;
+  multiNodeAggregationApplied: boolean | null;
+}
+
+export interface HrcDryRunArtifactListItem {
+  fileName: string;
+  kind: HrcDryRunArtifactKind;
+  generatedAt: string | null;
+  status: string | null;
+  zipFileNameSanitized: string | null;
+  selectedNodeEntry: string | null;
+  privacySafe: boolean | null;
+  validatorPass: boolean | null;
+  warningsCount: number;
+  errorsCount: number;
+  mismatchCount: number | null;
+  safetyFlags: HrcDryRunArtifactSafetyFlags;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+
+export interface HrcDryRunArtifactInvalidItem {
+  fileName: string;
+  reason: string;
+  error: string | null;
+}
+
+export interface HrcDryRunArtifactsListResponse {
+  directoryExists: boolean;
+  baseDir: "artifacts/hrc-dry-run-reports";
+  items: HrcDryRunArtifactListItem[];
+  invalidItems: HrcDryRunArtifactInvalidItem[];
+  safety: HrcDryRunArtifactSafetySummary;
+}
+
+export interface HrcDryRunArtifactDetailResponse {
+  fileName: string;
+  kind: HrcDryRunArtifactKind;
+  summary: HrcDryRunArtifactListItem;
+  detail: {
+    adapterReportSummary: unknown;
+    validatorResult: unknown;
+    mismatchSummary: unknown;
+    privacyWarnings: string[];
+    indexSummary: unknown;
+    comparisonSummary: unknown;
+    safety: HrcDryRunArtifactSafetyFlags & HrcDryRunArtifactSafetySummary;
+  };
+}
+
 export async function analyzeSpot(request: AnalyzeRequest): Promise<AnalyzeResult> {
   return postJson<AnalyzeResult>("/api/analyze", request);
 }
@@ -217,6 +283,22 @@ export async function validateHrcImport(payload: Pick<HrcImportPayload, "format"
 
 export async function diffCanonicalKeys(payload: CanonicalKeyDiffRequest): Promise<CanonicalKeyDiffResult> {
   return postJson<CanonicalKeyDiffResult>("/api/canonical-key/diff", payload);
+}
+
+export async function listHrcDryRunArtifacts(): Promise<HrcDryRunArtifactsListResponse> {
+  const response = await fetch("/api/hrc-dry-run-artifacts");
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as HrcDryRunArtifactsListResponse;
+}
+
+export async function getHrcDryRunArtifactDetail(fileName: string): Promise<HrcDryRunArtifactDetailResponse> {
+  const response = await fetch(`/api/hrc-dry-run-artifacts/${encodeURIComponent(fileName)}`);
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as HrcDryRunArtifactDetailResponse;
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {

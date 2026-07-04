@@ -331,6 +331,182 @@ const canonicalDiffResponse = {
   explanation: ["ante 값이 달라 canonical key가 달라졌습니다.", "BTN stack 값이 달라 canonical key가 달라졌습니다."]
 };
 
+const hrcArtifactListResponse = {
+  directoryExists: true,
+  baseDir: "artifacts/hrc-dry-run-reports",
+  safety: {
+    readOnly: true,
+    dbWriteApplied: false,
+    productImportConnected: false,
+    batchRunnerExecuted: false,
+    rawZipRead: false,
+    uiUsed: false
+  },
+  items: [
+    {
+      fileName: "hrc-dry-run-report-smoke.json",
+      kind: "REPORT",
+      generatedAt: "2026-06-17T12:00:00.000Z",
+      status: "OK",
+      zipFileNameSanitized: "smoke-hrc-sample.zip",
+      selectedNodeEntry: "nodes/0.json",
+      privacySafe: true,
+      validatorPass: true,
+      warningsCount: 0,
+      errorsCount: 0,
+      mismatchCount: 0,
+      safetyFlags: {
+        rawZipCommitted: false,
+        productImportConnected: false,
+        dbWriteApplied: false,
+        apiUsed: false,
+        uiUsed: false,
+        multiNodeAggregationApplied: false
+      },
+      sizeBytes: 1024,
+      modifiedAt: "2026-06-17T12:00:01.000Z"
+    },
+    {
+      fileName: "hrc-dry-run-index-smoke.json",
+      kind: "INDEX",
+      generatedAt: "2026-06-17T12:00:02.000Z",
+      status: null,
+      zipFileNameSanitized: null,
+      selectedNodeEntry: null,
+      privacySafe: true,
+      validatorPass: null,
+      warningsCount: 1,
+      errorsCount: 0,
+      mismatchCount: 1,
+      safetyFlags: {
+        rawZipCommitted: false,
+        productImportConnected: false,
+        dbWriteApplied: false,
+        apiUsed: false,
+        uiUsed: false,
+        multiNodeAggregationApplied: false
+      },
+      sizeBytes: 1536,
+      modifiedAt: "2026-06-17T12:00:03.000Z"
+    },
+    {
+      fileName: "hrc-dry-run-comparison-smoke.json",
+      kind: "COMPARISON",
+      generatedAt: "2026-06-17T12:00:04.000Z",
+      status: null,
+      zipFileNameSanitized: null,
+      selectedNodeEntry: null,
+      privacySafe: false,
+      validatorPass: null,
+      warningsCount: 2,
+      errorsCount: 1,
+      mismatchCount: 3,
+      safetyFlags: {
+        rawZipCommitted: false,
+        productImportConnected: false,
+        dbWriteApplied: false,
+        apiUsed: false,
+        uiUsed: false,
+        multiNodeAggregationApplied: false
+      },
+      sizeBytes: 2048,
+      modifiedAt: "2026-06-17T12:00:05.000Z"
+    },
+    {
+      fileName: "hrc-dry-run-missing-smoke.json",
+      kind: "REPORT",
+      generatedAt: "2026-06-17T12:00:06.000Z",
+      status: "OK",
+      zipFileNameSanitized: "missing-detail.zip",
+      selectedNodeEntry: "nodes/0.json",
+      privacySafe: true,
+      validatorPass: true,
+      warningsCount: 0,
+      errorsCount: 0,
+      mismatchCount: 0,
+      safetyFlags: {
+        rawZipCommitted: false,
+        productImportConnected: false,
+        dbWriteApplied: false,
+        apiUsed: false,
+        uiUsed: false,
+        multiNodeAggregationApplied: false
+      },
+      sizeBytes: 256,
+      modifiedAt: "2026-06-17T12:00:07.000Z"
+    },
+    {
+      fileName: "hrc-dry-run-invalid-detail-smoke.json",
+      kind: "REPORT",
+      generatedAt: "2026-06-17T12:00:08.000Z",
+      status: "OK",
+      zipFileNameSanitized: "invalid-detail.zip",
+      selectedNodeEntry: "nodes/0.json",
+      privacySafe: true,
+      validatorPass: true,
+      warningsCount: 0,
+      errorsCount: 0,
+      mismatchCount: 0,
+      safetyFlags: {
+        rawZipCommitted: false,
+        productImportConnected: false,
+        dbWriteApplied: false,
+        apiUsed: false,
+        uiUsed: false,
+        multiNodeAggregationApplied: false
+      },
+      sizeBytes: 256,
+      modifiedAt: "2026-06-17T12:00:09.000Z"
+    }
+  ],
+  invalidItems: [
+    {
+      fileName: "broken-smoke.json",
+      reason: "MALFORMED_JSON",
+      error: "safe parse error"
+    }
+  ]
+};
+
+const hrcArtifactDetailResponse = {
+  fileName: "hrc-dry-run-report-smoke.json",
+  kind: "REPORT",
+  summary: hrcArtifactListResponse.items[0],
+  detail: {
+    adapterReportSummary: {
+      candidateBuilt: true,
+      handCount: 169,
+      actionCount: 3,
+      hiddenRawPath: "C:\\Users\\sample-user\\Documents\\raw\\smoke.zip"
+    },
+    validatorResult: {
+      pass: true,
+      checkedHands: 169,
+      sourceLabel: "smoke@example.com"
+    },
+    mismatchSummary: {
+      hasMismatch: false,
+      mismatchCount: 0,
+      categories: [],
+      sample: []
+    },
+    privacyWarnings: ["privacy pattern detected: C:\\Users\\sample-user\\Desktop\\raw.zip", "userName smoke@example.com"],
+    indexSummary: null,
+    comparisonSummary: null,
+    safety: {
+      rawZipCommitted: false,
+      productImportConnected: false,
+      dbWriteApplied: false,
+      apiUsed: false,
+      uiUsed: false,
+      multiNodeAggregationApplied: false,
+      readOnly: true,
+      batchRunnerExecuted: false,
+      rawZipRead: false
+    }
+  }
+};
+
 test.describe("v1.2 smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/imports/validate", async (route) => {
@@ -400,6 +576,7 @@ test.describe("v1.2 smoke", () => {
     await expect(tabs.getByRole("button", { name: /Trainer/i })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Import", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Database", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "HRC Artifacts", exact: true })).toBeVisible();
     await expect(page.getByLabel("remaining players")).toBeVisible();
     await expect(page.getByLabel("hero position")).toBeVisible();
     await expect(page.getByLabel("preset name")).toBeVisible();
@@ -582,6 +759,128 @@ test.describe("v1.2 smoke", () => {
     await tabs.getByRole("button", { name: "Database", exact: true }).click();
     await expect(page.getByRole("heading", { name: /^Imports$/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^Solutions$/ })).toBeVisible();
+  });
+
+  test("renders read-only HRC artifact dashboard", async ({ page }) => {
+    const apiRequests: Array<{ method: string; url: string }> = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/")) {
+        apiRequests.push({ method: request.method(), url: request.url() });
+      }
+    });
+
+    await page.route("**/api/hrc-dry-run-artifacts", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(hrcArtifactListResponse)
+      });
+    });
+    await page.route("**/api/hrc-dry-run-artifacts/*", async (route) => {
+      const url = route.request().url();
+      if (url.endsWith("hrc-dry-run-report-smoke.json")) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(hrcArtifactDetailResponse)
+        });
+        return;
+      }
+      if (url.endsWith("hrc-dry-run-missing-smoke.json")) {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "artifact file was not found" })
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "artifact JSON is invalid" })
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "HRC Artifacts", exact: true }).click();
+
+    const dashboard = page.getByTestId("hrc-artifacts-view");
+    await expect(dashboard).toBeVisible();
+    await expect(page.getByTestId("hrc-artifact-readonly-notice")).toContainText("Read-only dashboard only.");
+    await expect(page.getByTestId("hrc-artifact-readonly-notice")).toContainText("GET /api/hrc-dry-run-artifacts");
+    await expect(page.getByTestId("hrc-artifact-summary")).toContainText("reports");
+    await expect(page.getByTestId("hrc-artifact-summary")).toContainText("comparisons");
+    await expect(page.getByTestId("hrc-artifact-safety-badges")).toContainText("productImportConnected: false");
+    await expect(page.getByTestId("hrc-artifact-safety-badges")).toContainText("dbWriteApplied: false");
+    await expect(page.getByTestId("hrc-artifact-safety-badges")).toContainText("batchRunnerExecuted: false");
+    await expect(page.getByTestId("hrc-artifact-safety-badges")).toContainText("rawZipRead: false");
+    await expect(page.getByTestId("hrc-artifact-list")).toContainText("REPORT");
+    await expect(page.getByTestId("hrc-artifact-list")).toContainText("INDEX");
+    await expect(page.getByTestId("hrc-artifact-list")).toContainText("COMPARISON");
+    await expect(page.getByTestId("hrc-artifact-invalid-items")).toContainText("MALFORMED_JSON");
+
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-report-smoke.json" }).getByRole("button", { name: "Details" }).click();
+    await expect(page.getByTestId("hrc-artifact-detail")).toBeVisible();
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("Adapter report summary");
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("Validator result");
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("Mismatch summary");
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("rawZipCommitted");
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("productImportConnected");
+    await expect(page.getByTestId("hrc-artifact-detail")).toContainText("dbWriteApplied");
+
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-missing-smoke.json" }).getByRole("button", { name: "Details" }).click();
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("Detail failed");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact file was not found");
+
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-invalid-detail-smoke.json" }).getByRole("button", { name: "Details" }).click();
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("Detail failed");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact JSON is invalid");
+
+    await expect(dashboard).not.toContainText("C:\\Users");
+    await expect(dashboard).not.toContainText("sample-user");
+    await expect(dashboard).not.toContainText("smoke@example.com");
+    await expect(dashboard.getByRole("button", { name: /Import|Export|Run|Upload|Delete|Write|Solver|Solve|Analyze/i })).toHaveCount(0);
+    expect(apiRequests.some((request) => request.method !== "GET" && request.url.includes("hrc-dry-run-artifacts"))).toBe(false);
+    expect(apiRequests.some((request) => request.url.includes("/api/imports/hrc") || request.url.includes("/api/imports/validate"))).toBe(false);
+  });
+
+  test("renders HRC artifact dashboard empty and list error states", async ({ page }) => {
+    await page.route("**/api/hrc-dry-run-artifacts", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          directoryExists: false,
+          baseDir: "artifacts/hrc-dry-run-reports",
+          items: [],
+          invalidItems: [],
+          safety: {
+            readOnly: true,
+            dbWriteApplied: false,
+            productImportConnected: false,
+            batchRunnerExecuted: false,
+            rawZipRead: false,
+            uiUsed: false
+          }
+        })
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "HRC Artifacts", exact: true }).click();
+    await expect(page.getByTestId("hrc-artifact-empty-state")).toBeVisible();
+    await expect(page.getByTestId("hrc-artifact-empty-state")).toContainText("does not create folders or files");
+
+    await page.route("**/api/hrc-dry-run-artifacts", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "mock list failure" })
+      });
+    });
+    await page.getByLabel("Refresh list").click();
+    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("HRC artifact list failed");
+    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("mock list failure");
   });
 
   test("renders trainer quiz loop from HRC solutions", async ({ page }) => {

@@ -43,6 +43,98 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.8 HRC Dry-run Batch Runner & Read-only Artifact Dashboard
+
+v2.8 is a diagnostic dry-run artifact review stage. It does not import raw HRC zip files into the product DB and does not connect dry-run artifacts to product import routes.
+
+### Batch Runner
+
+v2.8 adds an explicit local CLI batch runner:
+
+- package script: `hrc:dry-run:batch`
+- script: `scripts/hrcDryRunArtifactBatchExport.ts`
+
+Supported options include:
+
+- `--input-dir`
+- `--zip-list`
+- `--out`
+- `--max-files`
+- `--continue-on-error`
+- `--write-index`
+- `--allow-repo-artifact-write`
+- `--plan-only`
+
+The batch runner accepts repo-external raw HRC zip candidates, passes accepted candidates to the existing read-only dry-run helper, and writes sanitized artifact report JSON only when the explicit allow flag and output path guard both pass. `--write-index` can generate sanitized index/comparison JSON, and `--continue-on-error` keeps later candidates visible after a failed candidate.
+
+The batch runner never copies raw zip originals, never stores full zip extraction output, never writes to the production DB, and never connects to product import routes.
+
+### Read-only Artifact API
+
+v2.8 adds read-only API endpoints for existing sanitized artifact JSON:
+
+- `GET /api/hrc-dry-run-artifacts`
+- `GET /api/hrc-dry-run-artifacts/:fileName`
+
+The API reads only JSON files under `artifacts/hrc-dry-run-reports`. If that folder does not exist, it returns an empty response and does not create the folder. It rejects path traversal, absolute paths, `.zip` requests, and non-JSON requests. Malformed JSON is reported as an invalid item or a `422` detail response.
+
+Responses expose safe summaries/details only, not raw artifact dumps. Raw paths and privacy-sensitive values are redacted.
+
+### Read-only Dashboard
+
+The web app includes a read-only `HRC Artifacts` tab. It calls only the HRC artifact GET endpoints above and displays:
+
+- list summary
+- invalid items
+- report/index/comparison kind
+- detail panel
+- empty/list/detail error states
+- safety badges
+
+Safety badges include:
+
+- `productImportConnected: false`
+- `dbWriteApplied: false`
+- `batchRunnerExecuted: false`
+- `rawZipRead: false`
+
+The dashboard has no import, export, run, upload, delete, write, solver, or analyze buttons. It does not create artifacts, run the batch script, read raw zip files, write to SQLite, or call product import routes.
+
+### v2.8 Limits
+
+- No product import route connection.
+- No raw HRC zip product import.
+- No DB migration.
+- No production DB write.
+- No raw zip original commit.
+- No full raw zip extraction commit.
+- No automatic repo artifact creation.
+- No automatic report commit.
+- No RTA/live workflow.
+- No OCR / screen capture / overlay / hotkey / live watcher / poker client integration.
+- No Nash / approximate Nash.
+- No PKO / bounty / postflop.
+
+### v2.8 Verification
+
+- `npm.cmd run test`: PASS
+  - core 175
+  - server 28
+  - web 104
+- `npm.cmd run build`: PASS
+- `npm.cmd run test:smoke`: PASS 7/7
+- exact lookup: 262/262
+- random lookup: 20/20
+- duplicate canonical key: 0
+- near-match HRC false positive: 0
+- forbiddenHrcHit true count: 0
+- raw zip committed: no
+- repo internal `.zip`: none
+- `artifacts/hrc-dry-run-reports` auto-created: no
+- product import route connected: no
+- DB write: no
+- known issue: none
+
 ## v2.7 HRC Dry-run Artifact Export
 
 v2.7 is explicit artifact export only. It does not connect real HRC raw zip files or generated dry-run artifacts to product import routes, APIs, DB writes, solver logic, analysis logic, fallback logic, Browser/Trainer runtime, or UI.

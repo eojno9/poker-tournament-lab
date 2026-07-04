@@ -22,6 +22,14 @@ import {
   type SpotInput
 } from "@poker-tournament-lab/core";
 import { LabDatabase } from "./db.js";
+import {
+  readHrcDryRunArtifactDetail,
+  readHrcDryRunArtifactList,
+} from "./hrc-dry-run-artifacts.js";
+
+interface AppOptions {
+  hrcDryRunArtifactsDir?: string;
+}
 
 type ReportStatus = "available" | "missing" | "invalid";
 
@@ -148,7 +156,7 @@ interface ImportValidationSummary {
   multiActionInvalidCount?: number;
 }
 
-export function createApp(database = new LabDatabase()) {
+export function createApp(database = new LabDatabase(), options: AppOptions = {}) {
   const app = express();
   app.locals.database = database;
   app.use(cors());
@@ -184,6 +192,25 @@ export function createApp(database = new LabDatabase()) {
 
   app.get("/api/reports/latest", ((_req, res) => {
     res.json(readLatestReportsSummary());
+  }) satisfies RequestHandler);
+
+  app.get("/api/hrc-dry-run-artifacts", ((_req, res) => {
+    res.json(
+      readHrcDryRunArtifactList(
+        options.hrcDryRunArtifactsDir
+          ? { artifactsDir: options.hrcDryRunArtifactsDir }
+          : {},
+      ),
+    );
+  }) satisfies RequestHandler);
+
+  app.get("/api/hrc-dry-run-artifacts/:fileName", ((req, res) => {
+    const rawFileName = req.params.fileName;
+    const fileName = Array.isArray(rawFileName) ? rawFileName[0] ?? "" : rawFileName ?? "";
+    const result = readHrcDryRunArtifactDetail(fileName, {
+      ...(options.hrcDryRunArtifactsDir ? { artifactsDir: options.hrcDryRunArtifactsDir } : {}),
+    });
+    res.status(result.statusCode).json(result.body);
   }) satisfies RequestHandler);
 
   app.get("/api/db/health", ((_req, res) => {
