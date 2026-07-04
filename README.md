@@ -43,6 +43,73 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.2 RFI / Limp Sample Fixture Coverage
+
+v2.2는 v2.1 Action Tree Browser가 Push/Fold 외의 preflop action tree node에서도 안정적으로 작동하는지 검증하기 위한 TEST_ONLY/SAMPLE fixture coverage 단계입니다. production DB를 변경하지 않고, RFI/Open Raise, Limp, Facing Open, Facing Limp, vs 3bet 계열 sample payload와 unit coverage만 추가했습니다.
+
+이 sample data는 실제 GTO 추천 데이터가 아니며, solver 계산 결과처럼 표시하거나 취급하지 않습니다. 목적은 validator, action tree classifier, Browser filter/candidate summary가 여러 node shape를 안전하게 처리하는지 확인하는 것입니다.
+
+### TEST_ONLY / SAMPLE Data Principles
+
+v2.2 sample fixture는 실제 HRC/export 기반 production data와 명확히 분리됩니다.
+
+- `isSample: true`
+- `testOnly: true`
+- `calculationModel: TEST_ONLY_SAMPLE`
+- `streetScope: PREFLOP`
+- `exportShape: MULTI_ACTION_V2_SAMPLE`
+- `SAMPLE_TEST_ONLY` source label/file naming
+
+sample payload의 frequency/EV 값은 UI/분류/검증용 test value입니다. 없는 spot을 추천하지 않고, nearest recommendation을 수행하지 않으며, DB에 없는 action/size를 생성하지 않습니다.
+
+### Sample Fixture Scope
+
+추가된 TEST_ONLY/SAMPLE node coverage:
+
+- RFI / Open Raise
+- Limp
+- Facing Open
+- Facing Limp
+- vs 3bet
+
+### Import Validator Coverage
+
+- TEST_ONLY v2 sample payload가 multi-action import v2 validator를 통과하는지 확인합니다.
+- SAMPLE/TEST_ONLY metadata가 보존되는지 확인합니다.
+- LIMP sample은 현재 production schema를 확장하지 않고 schema-compatible handling으로 검증합니다.
+- 기존 v1/v2 import validator 회귀를 유지합니다.
+
+### Action Tree / Browser Coverage
+
+- RFI, Limp, Facing Open, Facing Limp, vs 3bet 분류를 확인합니다.
+- LIMP와 CALL이 분리되는지 확인합니다.
+- `availableActions`, `availableSizes`, `breadcrumb` 생성을 확인합니다.
+- Spot Type / Action Node filter option coverage를 확인합니다.
+- Node Candidate Summary와 Action / Size Filter Context를 확인합니다.
+- 0개 결과 empty state가 nearest recommendation 없이 안전하게 처리되는지 확인합니다.
+
+### v2.2 Limits
+
+- production DB 변경 없음
+- 신규 API 없음
+- DB schema migration 없음
+- 신규 import schema 없음
+- 새 solver 없음
+- solver job generator 없음
+- 없는 spot 추천 없음
+- nearest recommendation 없음
+- GTO Wizard 전체 복제 아님
+- HRC Pro / ICMIZER급 계산 엔진 아님
+- read-only sample fixture coverage 단계
+
+### Safety Scope
+
+- off-table only
+- RTA/live 기능 없음
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration 없음
+- Nash / approximate Nash 없음
+- PKO / bounty / postflop 없음
+
 ## v2.1 Action Tree Browser
 
 v2.1은 v2.0 Solution Browser를 preflop action tree 탐색이 가능한 read-only Browser로 확장합니다. Browser는 DB에 저장된 solution만 기준으로 Push/Fold, RFI/Open Raise, Limp, Facing Open, Facing Limp, 3bet/vs 3bet 같은 spot/action node를 분류하고 표시합니다.

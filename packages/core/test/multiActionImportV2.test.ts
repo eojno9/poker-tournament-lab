@@ -9,12 +9,20 @@ import {
   validateMultiActionHandActions,
   validateMultiActionImportV2Record
 } from "../src/index.js";
+import {
+  actionTreeSampleImportV2Records,
+  findActionTreeSampleImportV2Record
+} from "./fixtures/action-tree-sample-v2-fixtures.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturePath = join(__dirname, "fixtures", "multi-action-import-v2.sample.json");
 
 function sampleRecord(): Record<string, unknown> {
   return JSON.parse(readFileSync(fixturePath, "utf8")) as Record<string, unknown>;
+}
+
+function cloneRecord(record: unknown): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(record)) as Record<string, unknown>;
 }
 
 describe("multi-action import v2 validator", () => {
@@ -133,5 +141,49 @@ describe("multi-action import v2 validator", () => {
     expect(result.warnings.map((warning) => warning.message)).toEqual(
       expect.arrayContaining(["RAISE size is not provided", "BET size is not provided", "CALL size is not provided"])
     );
+  });
+
+  it("accepts TEST_ONLY action tree v2 sample payloads", () => {
+    for (const record of actionTreeSampleImportV2Records) {
+      const result = validateMultiActionImportV2Record(cloneRecord(record));
+
+      expect(result.valid).toBe(true);
+      expect(result.issues).toHaveLength(0);
+      expect(result.normalizedRecord?.schemaVersion).toBe("multi-action-v2");
+      expect(result.summary.handCount).toBeGreaterThan(0);
+      expect(result.summary.actionCount).toBeGreaterThan(0);
+    }
+  });
+
+  it("preserves SAMPLE and TEST_ONLY metadata for action tree samples", () => {
+    for (const record of actionTreeSampleImportV2Records) {
+      const result = normalizeMultiActionImportV2Record(cloneRecord(record));
+      const sourceMetadata = result.normalizedRecord?.sourceMetadata;
+
+      expect(sourceMetadata).toEqual(
+        expect.objectContaining({
+          isSample: true,
+          testOnly: true,
+          calculationModel: "TEST_ONLY_SAMPLE",
+          streetScope: "PREFLOP",
+          exportShape: "MULTI_ACTION_V2_SAMPLE",
+          spotFamily: record.sourceMetadata.spotFamily
+        })
+      );
+      expect(String(sourceMetadata?.sourceLabel)).toContain("SAMPLE_TEST_ONLY");
+      expect(sourceMetadata?.actionTags).toEqual(expect.arrayContaining(["SAMPLE", "TEST_ONLY"]));
+    }
+  });
+
+  it("keeps limp sample import schema-compatible without adding LIMP action kind", () => {
+    const record = findActionTreeSampleImportV2Record("LIMP");
+    const result = normalizeMultiActionImportV2Record(cloneRecord(record));
+    const actions = result.normalizedRecord?.strategy.A5s?.actions ?? [];
+
+    expect(result.valid).toBe(true);
+    expect(result.issues).toHaveLength(0);
+    expect(result.normalizedRecord?.sourceMetadata?.spotFamily).toBe("LIMP");
+    expect(actions.map((action) => action.action)).toContain("CALL");
+    expect(actions.some((action) => action.sourceActionLabel?.includes("LIMP") || action.sourceActionLabel?.includes("Limp"))).toBe(true);
   });
 });

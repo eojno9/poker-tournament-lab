@@ -6,6 +6,13 @@ import {
   extractAvailableActionKinds,
   extractAvailableSizeLabels
 } from "../src/actionTreeClassifier.js";
+import { actionTreeClassifierSamples } from "./fixtures/actionTreeSampleV2Fixtures.js";
+
+function assertIncludesAll(actual: readonly string[], expected: readonly string[]): void {
+  for (const value of expected) {
+    assert.ok(actual.includes(value), `Expected ${JSON.stringify(actual)} to include ${value}`);
+  }
+}
 
 test("classifies OPEN_SHOVE_ONLY as push/fold open shove", () => {
   const result = classifyActionTreeSpot({
@@ -206,4 +213,44 @@ test("handles empty input safely", () => {
   assert.deepEqual(result.availableSizes, []);
   assert.deepEqual(result.breadcrumbItems, ["UNKNOWN"]);
   assert.ok(result.warnings.some((warning) => warning.includes("분류 신호")));
+});
+for (const sample of actionTreeClassifierSamples) {
+  test(`classifies TEST_ONLY action tree sample: ${sample.name}`, () => {
+    const result = classifyActionTreeSpot(sample.input);
+
+    assert.equal(result.spotType, sample.expectedSpotType);
+    assert.equal(result.actionNode, sample.expectedActionNode);
+    assertIncludesAll(result.availableActions, sample.expectedActions);
+    assertIncludesAll(result.availableSizes, sample.expectedSizes);
+    assert.ok(result.breadcrumbItems.length > 0);
+    assert.notEqual(result.breadcrumbItems[0], "UNKNOWN");
+  });
+}
+
+test("keeps TEST_ONLY metadata explicit on action tree samples", () => {
+  for (const sample of actionTreeClassifierSamples) {
+    const sourceMetadata = sample.input.sourceMetadata;
+
+    assert.equal(sourceMetadata.isSample, true);
+    assert.equal(sourceMetadata.testOnly, true);
+    assert.equal(sourceMetadata.calculationModel, "TEST_ONLY_SAMPLE");
+    assert.equal(sourceMetadata.streetScope, "PREFLOP");
+    assert.equal(sourceMetadata.exportShape, "MULTI_ACTION_V2_SAMPLE");
+    assert.ok(sample.input.source.includes("SAMPLE_TEST_ONLY"));
+    assertIncludesAll(sourceMetadata.actionTags, ["SAMPLE", "TEST_ONLY"]);
+  }
+});
+
+test("keeps TEST_ONLY LIMP sample separate from CALL", () => {
+  const sample = actionTreeClassifierSamples.find((candidate) => candidate.name === "Limp");
+  if (!sample) {
+    throw new Error("Missing TEST_ONLY Limp sample fixture");
+  }
+
+  const result = classifyActionTreeSpot(sample.input);
+
+  assert.equal(result.spotType, "LIMP");
+  assert.equal(result.actionNode, "OPEN_LIMP");
+  assert.ok(result.availableActions.includes("LIMP"));
+  assert.equal(result.availableActions.includes("CALL"), false);
 });
