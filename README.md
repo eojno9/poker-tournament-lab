@@ -43,6 +43,101 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.5 Real HRC Import Adapter / Dry-Run Intake
+
+v2.5 is a dry-run compatibility stage only. It does not connect real HRC raw zip files to the product import route, API, DB writes, solver logic, analysis logic, fallback logic, or UI.
+
+The goal is to inspect a repo-external raw HRC zip safely, read only the needed entries in memory, apply the v2.4 raw node adapter for report purposes, and produce a diagnostic dry-run report.
+
+### Raw Zip Safety
+
+- Raw HRC zip originals remain outside the repo.
+- Raw HRC zip originals are not committed.
+- Full raw zip extraction output is not committed.
+- The dry-run reader lives in `packages/core` test/helper scope.
+- The helper reads `settings.json` and the selected `nodes/*.json` entry in memory.
+- Current default node read target is `nodes/0.json`.
+- Raw file paths are masked in reports.
+- Reports do not dump raw payload contents.
+
+### Privacy / Safety Scan
+
+The dry-run report scans settings/node text for sensitive patterns and records only warning categories, not raw values.
+
+Patterns include:
+
+- `C:\Users\`
+- `AppData`
+- `Desktop`
+- `Documents`
+- `sample-user`
+- email pattern
+- `playerName`
+- `nickname`
+- `screenname`
+- `userName`
+
+If a privacy pattern is found, the report uses `PRIVACY_WARNING`, keeps `privacySafe: false`, and does not promote the candidate toward product import.
+
+### Dry-Run Status Enum
+
+The report status is fixed to one of:
+
+- `OK`
+- `ZIP_NOT_FOUND`
+- `SETTINGS_MISSING`
+- `NODE_MISSING`
+- `SETTINGS_PARSE_ERROR`
+- `NODE_PARSE_ERROR`
+- `RAW_NODE_SHAPE_INVALID`
+- `PRIVACY_WARNING`
+- `ADAPTER_FAILED`
+- `VALIDATOR_FAILED`
+
+### Multiple Node Policy
+
+- Prefer `nodes/0.json` when it exists.
+- If `nodes/0.json` is absent, select the first `nodes/*.json` entry by deterministic string sort.
+- Record the selection in `selectedNodeEntry` and `selectedNodeReason`.
+- Keep `multiNodeAggregationApplied: false`.
+- Multi-node aggregation is future work and is not applied in v2.5.
+
+### Adapter / Validator Summary
+
+The dry-run report includes:
+
+- `adapterReportSummary`
+- `validatorResult`
+- `mismatchSummary`
+
+These are diagnostic summaries only. They do not write to the DB and do not call product import routes.
+
+### Amount Semantics
+
+v2.5 keeps the v2.4 amount policy:
+
+- `amountUnit: UNKNOWN`
+- `amountInterpretation: RAW_HRC_AMOUNT_UNINTERPRETED`
+- no bb conversion
+- no chip conversion
+
+Raw amounts are preserved as raw labels / metadata candidates until HRC format documentation or multiple samples justify a unit policy.
+
+### v2.5 Limits
+
+- No product import route connection.
+- No new API.
+- No DB migration.
+- No production DB write.
+- No UI.
+- No solver/analyze/fallback product logic change.
+- No raw zip commit.
+- No full raw zip extraction commit.
+- No RTA/live workflow.
+- No OCR / screen capture / overlay / hotkey / live watcher / poker client integration.
+- No Nash / approximate Nash.
+- No PKO / bounty / postflop.
+
 ## v2.4 Real HRC Raw Intake
 
 v2.4 reopens the raw HRC export compatibility track that remained pending in v2.3. It uses one real raw HRC zip candidate only as repo-external source material, then preserves a sanitized JSON fixture and pure adapter/report tests. The raw zip is not connected to product import, API, DB writes, solver logic, or UI.
