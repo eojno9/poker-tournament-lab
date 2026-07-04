@@ -6,6 +6,7 @@ import {
   Database,
   Download,
   FileUp,
+  GraduationCap,
   History,
   Loader2,
   Play,
@@ -15,6 +16,8 @@ import {
   Trash2
 } from "lucide-react";
 import {
+  buildTrainerProblemFromSolution,
+  gradeTrainerAnswer,
   HAND_KEYS,
   RESULT_SOURCES,
   type CanonicalDiffInput,
@@ -24,7 +27,10 @@ import {
   type HrcDatabaseFeatures,
   type HrcImportPayload,
   type SpotInput,
-  type StrategyMatrix
+  type StrategyMatrix,
+  type TrainerChoiceAction,
+  type TrainerGradeResult,
+  type TrainerProblem
 } from "@poker-tournament-lab/core";
 import {
   analyzeSpot,
@@ -72,8 +78,28 @@ import {
   loadRecentAnalyses,
   type RecentAnalysisEntry
 } from "./recentAnalyses.js";
+import {
+  addTrainerMistakeHistory,
+  addTrainerRecentHistory,
+  clearTrainerMistakesHistory,
+  clearTrainerRecentHistory,
+  loadTrainerMistakesHistory,
+  loadTrainerRecentHistory,
+  type TrainerHistoryEntry
+} from "./trainerHistory.js";
+import {
+  buildTrainerSourceSolutions,
+  defaultTrainerProblemFilters,
+  deriveTrainerTreeConfig,
+  filterTrainerSolutions,
+  normalizeTrainerHandInput,
+  parseTrainerSeedInput,
+  resolveTrainerSolutionIndex,
+  type TrainerProblemFilters
+} from "./trainerOptions.js";
+import { buildTrainerSummary } from "./trainerSummary.js";
 
-type Tab = "analyze" | "import" | "database";
+type Tab = "analyze" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
 type PresetNoticeTone = "success" | "error";
 
@@ -164,6 +190,9 @@ export function App() {
           <button className={activeTab === "analyze" ? "active" : ""} onClick={() => setActiveTab("analyze")} type="button">
             <Play size={16} /> Analyze
           </button>
+          <button className={activeTab === "trainer" ? "active" : ""} onClick={() => setActiveTab("trainer")} type="button" data-testid="trainer-tab">
+            <GraduationCap size={16} /> Trainer
+          </button>
           <button className={activeTab === "import" ? "active" : ""} onClick={() => setActiveTab("import")} type="button">
             <FileUp size={16} /> Import
           </button>
@@ -174,6 +203,7 @@ export function App() {
       </header>
 
       {activeTab === "analyze" && <AnalyzeView prefill={analyzePrefill} onConsumePrefill={() => setAnalyzePrefill(null)} />}
+      {activeTab === "trainer" && <TrainerView />}
       {activeTab === "import" && <ImportView />}
       {activeTab === "database" && (
         <DatabaseView onGoImport={() => setActiveTab("import")} onFillAnalyze={(spot) => moveToAnalyzeWithSpot(spot)} />
@@ -751,6 +781,477 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
         {error && <p className="error-text">{error}</p>}
       </div>
       <ResultPanel result={result} loading={loading} />
+    </section>
+  );
+}
+
+function TrainerView() {
+  const [solutions, setSolutions] = useState<SolutionListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<TrainerProblemFilters>(defaultTrainerProblemFilters);
+  const [handInput, setHandInput] = useState("");
+  const [seedInput, setSeedInput] = useState("");
+  const [problem, setProblem] = useState<TrainerProblem | null>(null);
+  const [problemError, setProblemError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState(0);
+  const [selectedAction, setSelectedAction] = useState<TrainerChoiceAction | null>(null);
+  const [grade, setGrade] = useState<TrainerGradeResult | null>(null);
+  const [trainerRecent, setTrainerRecent] = useState<TrainerHistoryEntry[]>(() => loadTrainerRecentHistory());
+  const [trainerMistakes, setTrainerMistakes] = useState<TrainerHistoryEntry[]>(() => loadTrainerMistakesHistory());
+
+  const trainerSourceSolutions = useMemo(() => buildTrainerSourceSolutions(solutions), [solutions]);
+  const trainerCandidates = useMemo(() => filterTrainerSolutions(trainerSourceSolutions, filters), [trainerSourceSolutions, filters]);
+  const heroPositionOptions = useMemo(
+    () => uniqueSorted(trainerSourceSolutions.map((row) => row.spot.heroPosition).filter((value) => typeof value === "string" && value.length > 0)),
+    [trainerSourceSolutions]
+  );
+  const tableSizeOptions = useMemo(
+    () =>
+      uniqueSorted(
+        trainerSourceSolutions
+          .map((row) => (typeof row.spot.tableSize === "number" ? String(row.spot.tableSize) : ""))
+          .filter((value) => value.length > 0)
+      ),
+    [trainerSourceSolutions]
+  );
+  const treeConfigOptions = useMemo(
+    () => uniqueSorted(trainerSourceSolutions.map((row) => deriveTrainerTreeConfig(row)).filter((value) => value.length > 0)),
+    [trainerSourceSolutions]
+  );
+
+  async function refreshProblems() {
+    setLoading(true);
+    setError(null);
+    try {
+      const rows = await listSolutions("", 500);
+      setSolutions(rows);
+      setCursor(0);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Trainer 문제를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshProblems();
+  }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    buildProblemFromCursor(cursor, trainerCandidates);
+  }, [cursor, trainerCandidates, handInput, seedInput, loading]);
+
+  function buildProblemFromCursor(nextCursor: number, sourceRows = trainerCandidates) {
+    if (sourceRows.length === 0) {
+      setProblem(null);
+      setProblemError("조건에 맞는 Trainer 문제가 없습니다.");
+      setGrade(null);
+      setSelectedAction(null);
+      return;
+    }
+
+    const normalizedIndex = resolveTrainerSolutionIndex(nextCursor, sourceRows.length, seedInput);
+    const selected = sourceRows[normalizedIndex]!;
+    const hand = normalizeTrainerHandInput(handInput);
+    const seed = parseTrainerSeedInput(seedInput);
+    const generated = buildTrainerProblemFromSolution(
+      {
+        source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+        canonicalKey: selected.canonicalKey,
+        sourceLabel: selected.sourceLabel,
+        spot: selected.spot,
+        strategy: selected.strategy,
+        ...(selected.evSummary ? { evSummary: selected.evSummary } : {}),
+        metadata: {
+          treeConfig: deriveTreeConfig(selected),
+          ...(selected.databaseFeatures ? { databaseFeatures: selected.databaseFeatures } : {})
+        }
+      },
+      {
+        ...(hand ? { hand } : {}),
+        randomSeed: seed === undefined ? selected.id : `${String(seed)}:${selected.id}`
+      }
+    );
+
+    if (!generated.ok) {
+      setProblem(null);
+      if (generated.error.code === "HAND_NOT_FOUND") {
+        setProblemError(`입력한 hand(${hand})가 선택된 strategy에 없습니다.`);
+      } else {
+        setProblemError(`Trainer 문제 생성 실패: ${generated.error.message}`);
+      }
+      setCursor(nextCursor);
+      setGrade(null);
+      setSelectedAction(null);
+      return;
+    }
+
+    setProblem(generated.problem);
+    setProblemError(null);
+    setCursor(nextCursor);
+    setGrade(null);
+    setSelectedAction(null);
+  }
+
+  function onAnswer(action: TrainerChoiceAction) {
+    if (!problem) {
+      return;
+    }
+    setSelectedAction(action);
+    const graded = gradeTrainerAnswer(problem, action);
+    setGrade(graded);
+
+    const historyInput = {
+      canonicalKey: problem.canonicalKey,
+      hand: problem.hand,
+      selectedAction: graded.selectedAction,
+      correctAction: graded.correctAction,
+      isCorrect: graded.isCorrect,
+      frequency: graded.frequency,
+      ev: graded.ev,
+      evLabel: graded.evLabel,
+      source: problem.source,
+      spotSummary: problem.spotSummary
+    };
+
+    setTrainerRecent(addTrainerRecentHistory(historyInput));
+    setTrainerMistakes(addTrainerMistakeHistory(historyInput));
+  }
+
+  function onNextProblem() {
+    if (trainerCandidates.length === 0) {
+      return;
+    }
+    setCursor((previous) => previous + 1);
+  }
+
+  function onClearTrainerRecent() {
+    clearTrainerRecentHistory();
+    setTrainerRecent([]);
+  }
+
+  function onClearTrainerMistakes() {
+    clearTrainerMistakesHistory();
+    setTrainerMistakes([]);
+  }
+
+  function resetTrainerFilters() {
+    setFilters(defaultTrainerProblemFilters);
+    setCursor(0);
+  }
+
+  const filterSummary = [
+    filters.heroPosition ? `hero=${filters.heroPosition}` : null,
+    filters.tableSize ? `table=${filters.tableSize}` : null,
+    filters.treeConfig ? `tree=${filters.treeConfig}` : null,
+    filters.sourceFile ? `file~${filters.sourceFile}` : null
+  ]
+    .filter((item): item is string => Boolean(item))
+    .join(" / ");
+  const handSummary = normalizeTrainerHandInput(handInput) ? `hand 고정: ${normalizeTrainerHandInput(handInput)}` : "hand 자동 선택(deterministic)";
+  const trainerSummary = useMemo(
+    () => buildTrainerSummary(trainerRecent, trainerMistakes, { recentWindowSize: 10, maxByHandRows: 5 }),
+    [trainerRecent, trainerMistakes]
+  );
+
+  return (
+    <section className="workspace-grid">
+      <div className="panel stack">
+        <div className="panel-title">
+          <GraduationCap size={18} />
+          <h2>Trainer</h2>
+          <button className="icon-button" onClick={() => void refreshProblems()} type="button" title="문제 새로고침">
+            <RefreshCw size={16} />
+          </button>
+        </div>
+
+        <div className="notice">
+          <p>오프테이블 학습용 문제입니다.</p>
+          <p>Trainer 기본 문제는 HRC_PRECOMPUTED_DB만 사용하며 FALLBACK_ICM / NOT_SOLVED는 제외됩니다.</p>
+        </div>
+
+        <div className="editor-block" data-testid="trainer-filter-controls">
+          <h3>문제 선택 옵션</h3>
+          <div className="form-grid">
+            <label>
+              Hero position
+              <select
+                value={filters.heroPosition}
+                onChange={(event) => setFilters((previous) => ({ ...previous, heroPosition: event.target.value }))}
+                data-testid="trainer-filter-hero-position"
+              >
+                <option value="">전체</option>
+                {heroPositionOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Table size
+              <select
+                value={filters.tableSize}
+                onChange={(event) => setFilters((previous) => ({ ...previous, tableSize: event.target.value }))}
+                data-testid="trainer-filter-table-size"
+              >
+                <option value="">전체</option>
+                {tableSizeOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Tree config
+              <select
+                value={filters.treeConfig}
+                onChange={(event) => setFilters((previous) => ({ ...previous, treeConfig: event.target.value }))}
+                data-testid="trainer-filter-tree-config"
+              >
+                <option value="">전체</option>
+                {treeConfigOptions.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Source file contains
+              <input
+                value={filters.sourceFile}
+                onChange={(event) => setFilters((previous) => ({ ...previous, sourceFile: event.target.value }))}
+                data-testid="trainer-filter-source-file"
+              />
+            </label>
+            <label>
+              Hand 입력 (예: AKo, K8s, 22)
+              <input value={handInput} onChange={(event) => setHandInput(event.target.value)} data-testid="trainer-hand-input" />
+            </label>
+            <label>
+              Seed
+              <input value={seedInput} onChange={(event) => setSeedInput(event.target.value)} data-testid="trainer-seed-input" />
+            </label>
+          </div>
+          <div className="search-line">
+            <button className="preset-action" onClick={resetTrainerFilters} type="button" data-testid="trainer-filter-reset-button">
+              <RefreshCw size={14} />
+              필터 초기화
+            </button>
+          </div>
+          <p className="muted" data-testid="trainer-filter-summary">필터: {filterSummary.length > 0 ? filterSummary : "전체"}</p>
+          <p className="muted" data-testid="trainer-candidate-count">
+            후보 문제 {trainerCandidates.length} / 전체 {trainerSourceSolutions.length}
+          </p>
+          <p className="muted">{handSummary}</p>
+        </div>
+
+        {error && <p className="error-text">{error}</p>}
+        {loading && <p className="muted">Trainer 문제를 불러오는 중...</p>}
+
+        {!loading && !problem && (
+          <div className="notice not-solved-help">
+            <p>{problemError ?? "Trainer 문제를 생성할 수 없습니다."}</p>
+            <p>HRC import 데이터가 없거나 strategy 정보가 비어 있으면 Trainer 문제를 만들 수 없습니다.</p>
+          </div>
+        )}
+
+        {problem && (
+          <div className="result-block" data-testid="trainer-problem-card">
+            <h3>문제 카드</h3>
+            <div className="detail-grid">
+              <ResultDetailItem label="Hero position" value={problem.spotSummary.heroPosition} />
+              <ResultDetailItem label="Table size" value={String(problem.spotSummary.tableSize)} />
+              <ResultDetailItem label="Hero stack (BB)" value={formatBb(problem.spotSummary.heroStackBb)} />
+              <ResultDetailItem label="Tree config" value={problem.spotSummary.treeConfig ?? "제공되지 않음"} />
+              <ResultDetailItem label="Hand" value={problem.hand} />
+              <ResultDetailItem label="Source" value={problem.source} />
+            </div>
+            <p className="muted">action path: {problem.spotSummary.actionPath.join(", ")}</p>
+            <code>{problem.canonicalKey.slice(0, 88)}...</code>
+
+            <div className="trainer-actions">
+              <button
+                className={`primary-action ${selectedAction === "SHOVE" ? "selected-answer" : ""}`}
+                type="button"
+                onClick={() => onAnswer("SHOVE")}
+                data-testid="trainer-shove-button"
+              >
+                SHOVE
+              </button>
+              <button
+                className={`primary-action ${selectedAction === "FOLD" ? "selected-answer" : ""}`}
+                type="button"
+                onClick={() => onAnswer("FOLD")}
+                data-testid="trainer-fold-button"
+              >
+                FOLD
+              </button>
+              <button className="preset-action" type="button" onClick={onNextProblem} data-testid="trainer-next-button">
+                다음 문제
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="panel stack">
+        <div className="panel-title">
+          <BadgeCheck size={18} />
+          <h2>결과</h2>
+        </div>
+
+        <div className="result-block" data-testid="trainer-summary-card">
+          <h3>학습 요약</h3>
+          <p className="muted">localStorage 기반 오프테이블 학습 기록입니다.</p>
+          {trainerSummary.totalAttempts === 0 ? (
+            <p className="muted">아직 Trainer 기록이 없습니다.</p>
+          ) : (
+            <>
+              <div className="detail-grid">
+                <ResultDetailItem label="전체 풀이 수" value={String(trainerSummary.totalAttempts)} />
+                <ResultDetailItem label="정답 수" value={String(trainerSummary.correctCount)} />
+                <ResultDetailItem label="오답 수" value={String(trainerSummary.incorrectCount)} />
+                <ResultDetailItem label="전체 정답률" value={formatSummaryPct(trainerSummary.accuracyPct)} />
+                <ResultDetailItem
+                  label="최근 10문제 정답률"
+                  value={
+                    trainerSummary.recentWindowAttempts > 0
+                      ? `${formatSummaryPct(trainerSummary.recentWindowAccuracyPct)} (${trainerSummary.recentWindowAttempts}문제)`
+                      : "제공되지 않음"
+                  }
+                />
+                <ResultDetailItem label="오답 노트 개수" value={String(trainerSummary.mistakeCount)} />
+              </div>
+              <p className="muted" data-testid="trainer-summary-total-attempts">totalAttempts: {trainerSummary.totalAttempts}</p>
+              <p className="muted" data-testid="trainer-summary-accuracy">accuracy: {formatSummaryPct(trainerSummary.accuracyPct)}</p>
+
+              <div className="meta-list">
+                <p>
+                  <strong>가장 최근 결과</strong>: {trainerSummary.latestResult
+                    ? `${trainerSummary.latestResult.hand} / ${trainerSummary.latestResult.selectedAction} → ${trainerSummary.latestResult.correctAction} (${trainerSummary.latestResult.isCorrect ? "정답" : "오답"})`
+                    : "제공되지 않음"}
+                </p>
+                <p>
+                  <strong>가장 최근 오답</strong>: {trainerSummary.mostRecentMistake
+                    ? `${trainerSummary.mostRecentMistake.hand} / ${trainerSummary.mostRecentMistake.selectedAction} → ${trainerSummary.mostRecentMistake.correctAction}`
+                    : "오답 없음"}
+                </p>
+              </div>
+
+              {trainerSummary.byHand.length > 0 ? (
+                <div className="range-table" role="table" aria-label="trainer by hand summary">
+                  <div className="range-row range-head" role="row">
+                    <span>hand</span>
+                    <span>attempts</span>
+                    <span>correct</span>
+                    <span>incorrect</span>
+                    <span>accuracy</span>
+                  </div>
+                  {trainerSummary.byHand.map((row) => (
+                    <div className="range-row" role="row" key={row.hand}>
+                      <span>{row.hand}</span>
+                      <span>{row.attempts}</span>
+                      <span>{row.correctCount}</span>
+                      <span>{row.incorrectCount}</span>
+                      <span>{formatSummaryPct(row.accuracyPct)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+
+        {!problem ? (
+          <p className="muted">문제를 먼저 불러와 주세요.</p>
+        ) : !grade ? (
+          <p className="muted">SHOVE 또는 FOLD를 선택하면 결과가 표시됩니다.</p>
+        ) : (
+          <div className="result-block" data-testid="trainer-result-card">
+            <h3>채점 결과</h3>
+            <div className={`notice ${grade.isCorrect ? "success" : ""}`}>
+              <p>{grade.isCorrect ? "정답입니다." : "오답입니다."}</p>
+            </div>
+            <div className="detail-grid">
+              <ResultDetailItem label="선택한 action" value={grade.selectedAction} />
+              <ResultDetailItem label="정답 action" value={grade.correctAction} />
+              <ResultDetailItem label="frequency" value={grade.frequency.toFixed(3)} />
+              <ResultDetailItem label="EV" value={grade.evLabel} />
+              <ResultDetailItem label="source" value={problem.source} />
+              <ResultDetailItem label="canonical key" value={`${problem.canonicalKey.slice(0, 60)}...`} />
+            </div>
+            <InfoList title="Explanation" items={problem.explanation} />
+          </div>
+        )}
+
+        <div className="editor-block" data-testid="trainer-recent-section">
+          <div className="panel-title">
+            <h3>최근 퀴즈</h3>
+            <button className="preset-action danger" type="button" onClick={onClearTrainerRecent} data-testid="trainer-clear-recent-button">
+              <Trash2 size={14} />
+              전체 삭제
+            </button>
+          </div>
+          {trainerRecent.length === 0 ? (
+            <p className="muted">아직 제출한 기록이 없습니다.</p>
+          ) : (
+            <div className="recent-list" data-testid="trainer-recent-list">
+              {trainerRecent.map((entry) => (
+                <div className="recent-row" key={entry.id} data-testid="trainer-recent-row">
+                  <div className="recent-summary">
+                    <strong>
+                      {entry.hand} · {entry.selectedAction} → {entry.correctAction}
+                    </strong>
+                    <span>{entry.isCorrect ? "정답" : "오답"} · {entry.source}</span>
+                    <span>
+                      freq {entry.frequency.toFixed(3)} · EV {entry.evLabel}
+                    </span>
+                    <span>
+                      {entry.spotSummary.heroPosition} / {entry.spotSummary.tableSize}명
+                    </span>
+                    <span>{new Date(entry.createdAt).toLocaleString("ko-KR")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="editor-block" data-testid="trainer-mistakes-section">
+          <div className="panel-title">
+            <h3>오답 노트</h3>
+            <button className="preset-action danger" type="button" onClick={onClearTrainerMistakes} data-testid="trainer-clear-mistakes-button">
+              <Trash2 size={14} />
+              전체 삭제
+            </button>
+          </div>
+          {trainerMistakes.length === 0 ? (
+            <p className="muted">오답 기록이 없습니다.</p>
+          ) : (
+            <div className="recent-list" data-testid="trainer-mistakes-list">
+              {trainerMistakes.map((entry) => (
+                <div className="recent-row" key={entry.id} data-testid="trainer-mistake-row">
+                  <div className="recent-summary">
+                    <strong>
+                      {entry.hand} · {entry.selectedAction} → {entry.correctAction}
+                    </strong>
+                    <span>{entry.source}</span>
+                    <span>{entry.spotSummary.heroPosition} / {entry.spotSummary.tableSize}명</span>
+                    <span>{new Date(entry.createdAt).toLocaleString("ko-KR")}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -2228,6 +2729,13 @@ function formatRate(success: number | null, total: number | null, ratePct: numbe
   }
   const rate = typeof ratePct === "number" && Number.isFinite(ratePct) ? ratePct.toFixed(2) : ((success / total) * 100).toFixed(2);
   return `${success}/${total} (${rate}%)`;
+}
+
+function formatSummaryPct(value: number | null): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "제공되지 않음";
+  }
+  return `${value.toFixed(2)}%`;
 }
 
 function missingReportMessage(status: LatestReportEnvelope<unknown>["status"] | undefined): string {

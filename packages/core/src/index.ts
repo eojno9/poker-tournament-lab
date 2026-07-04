@@ -6,3 +6,4 @@ export * from "./importer.js";
 export * from "./hrcCatalog.js";
 export * from "./icm.js";
 export * from "./fallback.js";
+export * from "./trainer.js";

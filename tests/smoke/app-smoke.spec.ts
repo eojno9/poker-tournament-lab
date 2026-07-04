@@ -314,6 +314,7 @@ test.describe("v1.2 smoke", () => {
     await page.goto("/");
     const tabs = page.locator("nav.tabs");
     await expect(tabs.getByRole("button", { name: "Analyze", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Trainer/i })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Import", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Database", exact: true })).toBeVisible();
     await expect(page.getByLabel("remaining players")).toBeVisible();
@@ -358,6 +359,54 @@ test.describe("v1.2 smoke", () => {
     await tabs.getByRole("button", { name: "Database", exact: true }).click();
     await expect(page.getByRole("heading", { name: /^Imports$/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: /^Solutions$/ })).toBeVisible();
+  });
+
+  test("renders trainer quiz loop from HRC solutions", async ({ page }) => {
+    await page.route("**/api/solutions*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ solutions: [databaseSampleSolution] })
+      });
+    });
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Trainer", exact: true }).click();
+
+    await expect(page.getByRole("heading", { name: /^Trainer$/ })).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-controls")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-hero-position")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-table-size")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-tree-config")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-source-file")).toBeVisible();
+    await expect(page.getByTestId("trainer-hand-input")).toBeVisible();
+    await expect(page.getByTestId("trainer-seed-input")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-reset-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-candidate-count")).toContainText("후보 문제");
+    await expect(page.getByTestId("trainer-summary-card")).toBeVisible();
+    await expect(page.getByTestId("trainer-summary-card")).toContainText("아직 Trainer 기록이 없습니다.");
+    await expect(page.getByTestId("trainer-problem-card")).toBeVisible();
+    await expect(page.getByText("오프테이블 학습용 문제입니다")).toBeVisible();
+    await expect(page.getByTestId("trainer-problem-card")).toContainText("HRC_PRECOMPUTED_DB");
+    await expect(page.getByTestId("trainer-shove-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-fold-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-recent-section")).toBeVisible();
+    await expect(page.getByTestId("trainer-mistakes-section")).toBeVisible();
+    await expect(page.getByTestId("trainer-clear-recent-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-clear-mistakes-button")).toBeVisible();
+
+    await page.getByTestId("trainer-shove-button").click();
+    await expect(page.getByTestId("trainer-result-card")).toBeVisible();
+    await expect(page.getByTestId("trainer-result-card")).toContainText("선택한 action");
+    await expect(page.getByTestId("trainer-result-card")).toContainText("정답 action");
+    await expect(page.getByTestId("trainer-recent-list")).toBeVisible();
+    await expect(page.getByTestId("trainer-recent-row")).toHaveCount(1);
+    await expect(page.getByTestId("trainer-summary-total-attempts")).toContainText("1");
+    await expect(page.getByTestId("trainer-summary-accuracy")).toContainText("%");
+
+    await page.getByTestId("trainer-fold-button").click();
+    await expect(page.getByTestId("trainer-mistakes-list")).toBeVisible();
+    await expect(page.getByTestId("trainer-mistake-row").first()).toBeVisible();
   });
 
   test("renders source states and updates recent analyses", async ({ page }) => {
