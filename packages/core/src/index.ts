@@ -10,3 +10,4 @@ export * from "./trainer.js";
 export * from "./rangeSensitivity.js";
 export * from "./actionSizingAudit.js";
 export * from "./actionSizingOptions.js";
+export * from "./multiActionStrategy.js";

@@ -640,6 +640,10 @@ textarea.compact-textarea {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.range-row.multi-action-row {
+  grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1fr 1fr 1fr 1.5fr;
+}
+
 .range-row span {
   overflow: hidden;
   text-overflow: ellipsis;

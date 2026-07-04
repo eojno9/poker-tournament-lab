@@ -43,6 +43,60 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v1.7 Multi-Action Schema Foundation
+v1.7은 DB schema migration 없이 기존 strategy를 `hand -> actions[]` view model로 변환해 보여주는 read-only foundation 단계입니다. 새 solver, 새 API, DB schema 변경 없이 Database와 Analyze 결과에서 action-level 정보를 더 명확히 확인할 수 있게 합니다.
+
+### Multi-Action Shape
+- Hand model: `hand -> actions[]`
+- 지원 action kind:
+  - `FOLD`
+  - `CHECK`
+  - `CALL`
+  - `BET`
+  - `RAISE`
+  - `ALL_IN`
+  - `UNKNOWN`
+- Action size 표현:
+  - `sizeBb`
+  - `sizePctPot`
+  - `isAllIn`
+  - `rawSizeLabel`
+- Action별 표시 값:
+  - `frequency`
+  - `EV`
+  - `ChipEV`
+  - `ICM EV`
+  - `warning`
+
+### Legacy Strategy Adapter
+v1.7 adapter는 기존 single-action legacy strategy row를 one-action `actions[]` entry로 변환합니다. HRC와 fallback 결과 의미는 read-only 표시 데이터로 보존하며, size나 EV가 없으면 값을 임의 생성하지 않고 `제공되지 않음` 또는 warning으로 표시합니다.
+
+대부분 기존 DB에서는 hand당 action 1개만 표시될 수 있습니다. 이는 v1.7에서 DB schema migration과 multi-action import v2를 아직 수행하지 않았기 때문에 정상적인 한계입니다.
+
+### Database Detail Preview
+Database Detail에는 read-only Multi-action preview가 추가되었습니다. 선택된 solution의 strategy를 hand, action, size, frequency, EV, ChipEV, ICM EV, warning 단위로 보여주며 기존 Database matrix, source metadata, canonical key, detail UI는 유지합니다.
+
+### Analyze Result Detail
+Analyze Result에는 strategy가 있을 때 read-only Multi-action detail이 표시됩니다. 기존 Result source detail, EV summary, 13x13 matrix, Villain Range Sensitivity, ChipEV/ICM comparison, Range Preset Comparison, assumptions, limitations는 유지됩니다.
+
+### v1.7 Limits
+- DB schema migration 안 함
+- multi-action import v2 안 함
+- solver job generator 안 함
+- 실제 multi-action solving 안 함
+- Nash / approximate Nash 안 함
+- PKO / bounty / postflop 안 함
+- nearest recommendation 안 함
+- OCR / screen capture / overlay / hotkey / live watcher / poker client integration / real-time assistance / RTA workflow 없음
+
+향후 schema v2/import v2에서는 raise/call/fold/all-in 복수 action frequency와 EV를 native multi-action solution data로 저장하는 것을 목표로 합니다.
+
+### Product Goals
+- 단기 목표: HRC로 만든 DB를 정확히 import하고 GTO Wizard처럼 탐색/학습
+- 중기 목표: DB에 있는 액션/레이즈 사이즈만 선택하게 하고 raise/call/fold/all-in 비율과 EV를 보기 좋게 표시
+- 장기 목표: HRC Pro / ICMIZER처럼 계산 job을 만들고 자체 또는 외부 계산 결과로 GTO DB를 계속 생산
+- 최종 목표: 오프테이블 전용 MTT preflop/ICM GTO DB 제작·탐색·학습 플랫폼
+
 ## v1.6 DB Action/Sizing Selector
 v1.6 기능은 multi-action schema v2가 아닙니다. 현재 imported DB와 `/api/solutions`에 실제로 존재하는 action/sizing 신호를 read-only로 추출, 표시, 선택 보조하는 기반 작업입니다.
 

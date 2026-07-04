@@ -448,6 +448,12 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("recent-analyses-list")).toBeVisible();
     await expect(page.getByTestId("recent-analyses-list")).toContainText("HRC_PRECOMPUTED_DB");
     await expect(page.getByTestId("ev-comparison-block")).toHaveCount(0);
+    const hrcMultiActionDetail = page.getByTestId("analyze-multi-action-detail");
+    await expect(hrcMultiActionDetail).toBeVisible();
+    await expect(hrcMultiActionDetail).toContainText("Multi-action detail");
+    await expect(hrcMultiActionDetail).toContainText("read-only");
+    await expect(hrcMultiActionDetail).toContainText("AA");
+    await expect(hrcMultiActionDetail).toContainText("ALL_IN");
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("FALLBACK_ICM");
@@ -474,12 +480,17 @@ test.describe("v1.2 smoke", () => {
     await expect(sensitivity).toBeVisible();
     await expect(sensitivity).toContainText("Villain Range Sensitivity");
     await expect(sensitivity).toContainText("Nash");
+    const fallbackMultiActionDetail = page.getByTestId("analyze-multi-action-detail");
+    await expect(fallbackMultiActionDetail).toBeVisible();
+    await expect(fallbackMultiActionDetail).toContainText("FALLBACK_ICM");
+    await expect(fallbackMultiActionDetail).toContainText("AA");
     await expect(sensitivity).toContainText("제공되지 않음");
 
     await runButton.click();
     await expect(page.locator(".source-badge")).toContainText("NOT_SOLVED");
     await expect(page.locator(".not-solved-box")).toContainText("NOT_SOLVED");
     await expect(page.getByTestId("ev-comparison-block")).toHaveCount(0);
+    await expect(page.getByTestId("analyze-multi-action-detail")).toHaveCount(0);
     await expect(
       page.getByText("fallback requires one payout value per remaining player, including 0 for unpaid places").first()
     ).toBeVisible();
@@ -535,6 +546,15 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("db-action-sizing-summary")).toContainText("actionPath");
     await expect(page.getByTestId("db-action-sizing-summary")).toContainText("treeConfig");
     await expect(page.getByTestId("db-action-sizing-summary")).toContainText("sourceCount");
+    const multiActionPreview = page.getByTestId("db-multi-action-preview");
+    await expect(multiActionPreview).toBeVisible();
+    await expect(multiActionPreview).toContainText("Multi-action preview");
+    await expect(multiActionPreview).toContainText("read-only");
+    await expect(multiActionPreview).toContainText("hand");
+    await expect(multiActionPreview).toContainText("frequency");
+    await expect(multiActionPreview).toContainText("EV");
+    await expect(multiActionPreview).toContainText("AA");
+    await expect(multiActionPreview).toContainText("ALL_IN");
 
     await page.getByTestId("db-fill-analyze-button").click();
     await expect(page.getByRole("heading", { name: "Analyze Spot" })).toBeVisible();

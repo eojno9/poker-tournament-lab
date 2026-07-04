@@ -18,6 +18,9 @@ import {
 import {
   buildTrainerProblemFromSolution,
   extractAvailableActionSizingOptions,
+  formatActionEv,
+  formatActionFrequency,
+  formatActionSize,
   gradeTrainerAnswer,
   HAND_KEYS,
   RESULT_SOURCES,
@@ -113,6 +116,7 @@ import {
   formatActionSizingOption
 } from "./analyzeActionSizingSelector.js";
 import { buildDatabaseActionSizingSummary } from "./databaseActionSizingSummary.js";
+import { buildMultiActionFromAnalyzeResult, buildMultiActionFromSolution } from "./multiActionAdapter.js";
 
 type Tab = "analyze" | "import" | "database" | "trainer";
 type AnalyzeMode = "form" | "json";
@@ -1513,6 +1517,7 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
   const missingRequirements = result.missingRequirements ?? [];
   const sensitivitySummary = buildSensitivitySummaryFromAnalyzeResult(result);
   const evComparison = buildEvComparisonFromAnalyzeResult(result);
+  const multiActionDetail = buildMultiActionFromAnalyzeResult(result);
 
   return (
     <div className="panel result-panel">
@@ -1711,10 +1716,75 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
 
       {result.strategy ? <HandMatrix strategy={result.strategy} /> : <div className="not-solved-box">NOT_SOLVED</div>}
 
+      {result.source !== RESULT_SOURCES.NOT_SOLVED && (
+        <AnalyzeMultiActionDetailBlock view={multiActionDetail} source={result.source} />
+      )}
+
       <div className="info-grid">
         <InfoList title="Assumptions" items={result.assumptions} />
         <InfoList title="Limitations" items={result.limitations} />
       </div>
+    </div>
+  );
+}
+
+function AnalyzeMultiActionDetailBlock({
+  view,
+  source
+}: {
+  view: ReturnType<typeof buildMultiActionFromAnalyzeResult>;
+  source: AnalyzeResult["source"];
+}) {
+  const previewHands = view?.hands.slice(0, 20) ?? [];
+
+  return (
+    <div className="result-block" data-testid="analyze-multi-action-detail">
+      <h3>Hand별 액션 상세 (Multi-action detail)</h3>
+      <div className="notice">
+        <p>현재 v1.7은 기존 strategy를 actions[] 형태로 변환해 보여주는 read-only preview입니다.</p>
+        <p>대부분 기존 DB에서는 hand당 action 1개만 표시될 수 있습니다.</p>
+        <p>향후 schema v2/import v2에서 raise/call/fold/all-in 복수 action frequency와 EV를 저장할 예정입니다.</p>
+      </div>
+
+      {!view ? (
+        <p className="muted">표시 가능한 multi-action strategy가 없습니다. source: {source}</p>
+      ) : (
+        <>
+          <div className="detail-grid">
+            <ResultDetailItem label="source" value={view.source} />
+            <ResultDetailItem label="actionKinds" value={view.actionKinds.join(", ") || "제공되지 않음"} />
+            <ResultDetailItem label="preview hands" value={`${previewHands.length} / ${view.hands.length}`} />
+            <ResultDetailItem label="legacy adapter" value={view.isReadOnlyLegacyAdapter ? "read-only" : "제공되지 않음"} />
+          </div>
+
+          <div className="range-table" role="table" aria-label="analyze multi-action detail table">
+            <div className="range-row range-head multi-action-row" role="row">
+              <span>hand</span>
+              <span>action</span>
+              <span>size</span>
+              <span>frequency</span>
+              <span>EV</span>
+              <span>ChipEV</span>
+              <span>ICM EV</span>
+              <span>source / warning</span>
+            </div>
+            {previewHands.flatMap((hand) =>
+              hand.actions.map((action, actionIndex) => (
+                <div className="range-row multi-action-row" role="row" key={`${hand.hand}-${action.action}-${actionIndex}`}>
+                  <span>{hand.hand}</span>
+                  <span>{action.action}</span>
+                  <span>{formatMultiActionSize(action.size)}</span>
+                  <span>{formatActionFrequency(action.frequency)}</span>
+                  <span>{action.evLabel || formatActionEv(action.ev)}</span>
+                  <span>{formatActionEv(action.chipEv)}</span>
+                  <span>{formatActionEv(action.icmEv)}</span>
+                  <span>{`${view.source}${action.warnings.length > 0 ? ` / ${formatMultiActionWarnings(action.warnings)}` : ""}`}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -2700,6 +2770,8 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             ) : (
               <p className="muted">strategy 정보가 제공되지 않음</p>
             )}
+
+            <DatabaseMultiActionPreviewBlock row={selected.row} />
           </>
         )}
       </div>
@@ -2784,6 +2856,89 @@ function DatabaseActionSizingSummaryBlock({ row }: { row: SolutionListItem }) {
       </div>
     </div>
   );
+}
+
+function DatabaseMultiActionPreviewBlock({ row }: { row: SolutionListItem }) {
+  const view = useMemo(() => buildMultiActionFromSolution(row), [row]);
+  const previewHands = view?.hands.slice(0, 20) ?? [];
+
+  return (
+    <div className="result-block" data-testid="db-multi-action-preview">
+      <h3>액션별 전략 미리보기 (Multi-action preview)</h3>
+      <div className="notice">
+        <p>v1.7은 DB schema migration 없이 기존 strategy를 multi-action view로 변환해 보여줍니다.</p>
+        <p>향후 schema v2에서는 raise/call/fold/all-in 복수 action frequency와 EV를 저장할 예정입니다.</p>
+        <p>현재 preview는 read-only 표시이며 새 solver 계산이 아닙니다.</p>
+      </div>
+
+      {!view ? (
+        <p className="muted">multi-action preview를 만들 strategy 정보가 제공되지 않음</p>
+      ) : (
+        <>
+          <div className="detail-grid">
+            <ResultDetailItem label="source" value={view.source} />
+            <ResultDetailItem label="actionKinds" value={view.actionKinds.join(", ") || "제공되지 않음"} />
+            <ResultDetailItem label="preview hands" value={`${previewHands.length} / ${view.hands.length}`} />
+            <ResultDetailItem label="legacy adapter" value={view.isReadOnlyLegacyAdapter ? "read-only" : "제공되지 않음"} />
+          </div>
+
+          <div className="range-table" role="table" aria-label="database multi-action preview table">
+            <div className="range-row range-head multi-action-row" role="row">
+              <span>hand</span>
+              <span>action</span>
+              <span>size</span>
+              <span>frequency</span>
+              <span>EV</span>
+              <span>ChipEV</span>
+              <span>ICM EV</span>
+              <span>warnings</span>
+            </div>
+            {previewHands.flatMap((hand) =>
+              hand.actions.map((action, actionIndex) => (
+                <div className="range-row multi-action-row" role="row" key={`${hand.hand}-${action.action}-${actionIndex}`}>
+                  <span>{hand.hand}</span>
+                  <span>{action.action}</span>
+                  <span>{formatMultiActionSize(action.size)}</span>
+                  <span>{formatActionFrequency(action.frequency)}</span>
+                  <span>{action.evLabel || formatActionEv(action.ev)}</span>
+                  <span>{formatActionEv(action.chipEv)}</span>
+                  <span>{formatActionEv(action.icmEv)}</span>
+                  <span>{formatMultiActionWarnings(action.warnings)}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          {view.warnings.length > 0 ? (
+            <div className="notice">
+              {view.warnings.map((warning) => (
+                <p key={warning}>{formatMultiActionWarning(warning)}</p>
+              ))}
+            </div>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function formatMultiActionSize(size: Parameters<typeof formatActionSize>[0]): string {
+  const formatted = formatActionSize(size);
+  return formatted === "제공되지 않음" ? "사이즈 미지정 / DB 원본에 명시 필요" : formatted;
+}
+
+function formatMultiActionWarnings(warnings: string[]): string {
+  if (warnings.length === 0) {
+    return "없음";
+  }
+  return warnings.map(formatMultiActionWarning).join(" | ");
+}
+
+function formatMultiActionWarning(warning: string): string {
+  if (warning.toLowerCase().includes("size")) {
+    return "사이즈 미지정 / DB 원본에 명시 필요";
+  }
+  return warning;
 }
 
 function StrategyMatrixPreview({ strategy }: { strategy: StrategyMatrix }) {
