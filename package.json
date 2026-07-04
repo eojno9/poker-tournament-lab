@@ -14,10 +14,12 @@
     "import:hrc-folder": "npm --workspace @poker-tournament-lab/core run build && node scripts/import-hrc-folder.mjs",
     "canonical:keys:dry-run": "npm --workspace @poker-tournament-lab/core run build && npm --workspace @poker-tournament-lab/server run canonical:keys -- --dry-run --report-file \"../../artifacts/latest-canonical-key-report.json\"",
     "canonical:keys:apply": "npm --workspace @poker-tournament-lab/core run build && npm --workspace @poker-tournament-lab/server run canonical:keys -- --apply --report-file \"../../artifacts/latest-canonical-key-report.json\"",
-    "test": "npm --workspace @poker-tournament-lab/core run test && npm --workspace @poker-tournament-lab/server run test",
+    "test": "npm --workspace @poker-tournament-lab/core run test && npm --workspace @poker-tournament-lab/server run test && npm --workspace @poker-tournament-lab/web run test",
+    "test:smoke": "node scripts/test-smoke.mjs",
     "typecheck": "npm --workspace @poker-tournament-lab/core run typecheck && npm --workspace @poker-tournament-lab/server run typecheck && npm --workspace @poker-tournament-lab/web run typecheck"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.9.0",

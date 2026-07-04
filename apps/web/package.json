@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite --configLoader runner --host 127.0.0.1 --port 5173",
     "build": "tsc -p tsconfig.json && vite build --configLoader runner",
+    "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview --configLoader runner --host 127.0.0.1 --port 5173"
   },

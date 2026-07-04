@@ -3,6 +3,8 @@ dist/
 .vite/
 .cache/
 coverage/
+playwright-report/
+test-results/
 *.local
 data/
 artifacts/
