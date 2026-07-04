@@ -43,6 +43,96 @@ Playwright 최초 설치:
 npm.cmd exec playwright install chromium
 ```
 
+## v2.7 HRC Dry-run Artifact Export
+
+v2.7 is explicit artifact export only. It does not connect real HRC raw zip files or generated dry-run artifacts to product import routes, APIs, DB writes, solver logic, analysis logic, fallback logic, Browser/Trainer runtime, or UI.
+
+The goal is to let a user intentionally run local CLI scripts that export sanitized dry-run artifact JSON. Single report export and index/comparison export are separate flows.
+
+### Scripts
+
+Local scripts:
+
+- `scripts/hrcDryRunArtifactExport.ts`
+- `scripts/hrcDryRunArtifactIndexExport.ts`
+
+Package scripts:
+
+- `hrc:dry-run:export`
+- `hrc:dry-run:index`
+
+Example shape:
+
+```powershell
+npm.cmd run hrc:dry-run:export -- --zip "<repo-external-raw-zip>" --out artifacts/hrc-dry-run-reports --allow-repo-artifact-write
+npm.cmd run hrc:dry-run:index -- --reports artifacts/hrc-dry-run-reports --out artifacts/hrc-dry-run-reports --allow-repo-artifact-write
+```
+
+These commands are opt-in only. They are not run by tests, build, smoke, app startup, server routes, or web runtime.
+
+### Export Policy
+
+- Repo artifact writes are rejected by default.
+- `--allow-repo-artifact-write` is required before any repo artifact JSON is written.
+- Output is allowed only under repo-root `artifacts/hrc-dry-run-reports`.
+- Report input for index/comparison is allowed only from repo-root `artifacts/hrc-dry-run-reports` JSON files.
+- Path traversal is rejected.
+- Raw HRC zip originals are not copied.
+- Full raw zip extraction output is not stored.
+- Generated reports are not automatically committed.
+
+### Index / Comparison Export Policy
+
+The index export reads existing sanitized dry-run report JSON files and can write:
+
+- `hrc-dry-run-index-YYYYMMDD-HHMMSS.json`
+- `hrc-dry-run-comparison-YYYYMMDD-HHMMSS.json`
+
+Input rejection policy:
+
+- `.zip` files are rejected.
+- Non-JSON files are rejected.
+- Malformed JSON is rejected.
+- Schema mismatch is rejected.
+- Unsafe safety flags are rejected.
+- Privacy unsafe reports are rejected.
+
+Deterministic sorting policy:
+
+1. `zipFileNameSanitized`
+2. `generatedAt`
+3. `selectedNodeEntry`
+
+### Privacy / Path Redaction
+
+Artifact JSON and index/comparison JSON must not contain:
+
+- raw local path text
+- `C:\Users\`
+- user tokens such as `sample-user`
+- email text
+- raw HRC zip binary content
+- full extraction content
+- long hand strategy payload dumps
+
+### v2.7 Limits
+
+- No product import route connection.
+- No new API.
+- No DB migration.
+- No production DB write.
+- No UI.
+- No solver/analyze/fallback product logic change.
+- No actual raw zip import.
+- No raw zip commit.
+- No full raw zip extraction commit.
+- No automatic repo artifact generation.
+- No automatic report commit.
+- No RTA/live workflow.
+- No OCR / screen capture / overlay / hotkey / live watcher / poker client integration.
+- No Nash / approximate Nash.
+- No PKO / bounty / postflop.
+
 ## v2.6 Real HRC Dry-run Artifacts
 
 v2.6 is dry-run artifact infrastructure only. It does not connect real HRC raw zip files to product import routes, APIs, DB writes, solver logic, analysis logic, fallback logic, or UI.
