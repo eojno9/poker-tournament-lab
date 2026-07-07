@@ -17,6 +17,7 @@
     "hrc:dry-run:export": "tsx scripts/hrcDryRunArtifactExport.ts",
     "hrc:dry-run:index": "tsx scripts/hrcDryRunArtifactIndexExport.ts",
     "hrc:dry-run:batch": "tsx scripts/hrcDryRunArtifactBatchExport.ts",
+    "copied-db:rehearsal:dry-run": "node --import tsx --eval \"import('./apps/server/src/cli/copiedDbRehearsal.ts').then(({ runCopiedDbRehearsalCli }) => { const result = runCopiedDbRehearsalCli(process.argv.slice(1), { writeStdout: console.log, writeStderr: console.error }); process.exitCode = result.exitCode; });\" --",
     "test": "npm --workspace @poker-tournament-lab/core run test && npm --workspace @poker-tournament-lab/server run test && npm --workspace @poker-tournament-lab/web run test",
     "test:smoke": "node scripts/test-smoke.mjs",
     "typecheck": "npm --workspace @poker-tournament-lab/core run typecheck && npm --workspace @poker-tournament-lab/server run typecheck && npm --workspace @poker-tournament-lab/web run typecheck"
@@ -25,9 +26,9 @@
     "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.0",
     "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "^5.9.0",
     "tsx": "^4.20.0",
-    "vite": "^7.0.0",
-    "vitest": "^3.2.0"
+    "typescript": "^5.9.0",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7"
   }
 }

@@ -26,8 +26,9 @@ Start with:
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, and v3.2 documents for auditability. These documents describe
-foundation work, copied-DB rehearsal planning, public-snapshot cleanup, and GitHub readiness.
+The repository includes v3.0, v3.1, v3.2, v3.3, and v3.4 documents for auditability. These documents describe
+foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
+and dry-run package script verification.
 
 They should not be read as public release tags unless a matching Git tag exists.
 
@@ -63,6 +64,31 @@ Start with:
 - `docs/v3.2-plan.md`
 - `docs/v3.2-public-github-final-verification.md`
 - `docs/v3.2-release-wrap-up.md`
+
+### v3.3 Documents
+
+v3.3 documents focus on npm audit triage, public quality review, and copied DB dry-run command planning.
+
+Start with:
+
+- `docs/v3.3-plan.md`
+- `docs/v3.3-closeout.md`
+
+### v3.4 Documents
+
+v3.4 documents focus on the dry-run-only copied DB rehearsal package script, post-connection smoke verification,
+dependency maintenance, BOM cleanup, artifact hygiene, final release-readiness cleanup, and release/tag planning.
+
+The current v3.4 documents mark `v3.4` as a local tag candidate only. A matching tag is not implied unless it exists in Git.
+GitHub upload must use a separately reviewed public-safe workflow; the original repository should not receive a remote or be pushed directly.
+
+Start with:
+
+- `docs/v3.4-plan.md`
+- `docs/v3.4-closeout.md`
+- `docs/v3.4-final-cleanup.md`
+- `docs/v3.4-release-tag-planning.md`
+- `docs/v3.4-github-upload-preflight.md`
 
 ## Verification
 
