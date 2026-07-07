@@ -10,10 +10,11 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current public Git tag: `v2.9`
-- Public `main` is a sanitized 4-commit source history used for OSS review.
-- The `docs/v3.0-*`, `docs/v3.1-*`, and `docs/v3.2-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- Current public Git tag: `v3.4`
+- Public `main` contains the latest sanitized public source snapshot.
+- The public history is intentionally sanitized and shorter than the private development timeline.
 - Bundled data artifacts are not included. Users configure their own local data.
+- Current v3.4 scope: dry-run-only copied DB rehearsal script, fail-closed safety gate, audit-clean dependencies, and generated report artifact hygiene.
 
 ## What This Is
 
@@ -111,10 +112,11 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 ## Release And Documentation Map
 
 - Release history summary: `docs/RELEASE_HISTORY.md`
-- Current planning record: `docs/v3.2-plan.md`
-- Public GitHub final verification: `docs/v3.2-public-github-final-verification.md`
-- Public release wrap-up: `docs/v3.2-release-wrap-up.md`
-- v2.9 public tag documentation: `docs/v2.9-plan.md` and related `docs/v2.9-*` reports
+- Current planning record: `docs/v3.4-plan.md`
+- Public GitHub final verification: `docs/v3.4-public-github-final-verification.md`
+- Public upload preflight: `docs/v3.4-public-upload-preflight.md`
+- v3.4 release/tag planning: `docs/v3.4-release-tag-planning.md`
+- Historical public tag documentation starts with `docs/v2.9-plan.md` and related `docs/v2.9-*` reports.
 
 ## Known Limitations
 
@@ -122,7 +124,7 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 - Public refs do not include bundled data artifacts.
 - Non-README UTF-8 BOM occurrences are documented as a public-quality cleanup candidate.
 - The public repo has low social proof metrics; do not infer adoption from stars, forks, or downloads.
-- v3.x documents describe planning/readiness work unless a matching public tag is created.
+- Some v3.x documents describe planning/readiness work; public Git tags identify the released public snapshots.
 
 ## Contributing And Security
 

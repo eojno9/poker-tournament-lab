@@ -11,18 +11,22 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v2.9
+### v3.4
 
-`v2.9` is the current public Git tag.
+`v3.4` is the current public Git tag.
 
-The v2.9 documentation records a controlled off-table dry-run and classification stage. It does not
-add live assistance, production DB writes, product import routes, or bundled data artifacts to the
-public repository.
+The v3.4 public snapshot adds a dry-run-only copied DB rehearsal package script, fail-closed safety
+checks, audit-clean dependency updates, and generated report artifact hygiene. It does not add live
+assistance, production DB writes, product import routes, or bundled data artifacts to the public
+repository.
 
 Start with:
 
-- `docs/v2.9-plan.md`
-- related `docs/v2.9-*` reports
+- `docs/v3.4-plan.md`
+- `docs/v3.4-closeout.md`
+- `docs/v3.4-public-github-final-verification.md`
+
+Historical public tags include `v2.9`, `v3.0`, `v3.1`, and `v3.2`.
 
 ## Later Planning And Verification Documents
 
@@ -79,8 +83,9 @@ Start with:
 v3.4 documents focus on the dry-run-only copied DB rehearsal package script, post-connection smoke verification,
 dependency maintenance, BOM cleanup, artifact hygiene, final release-readiness cleanup, and release/tag planning.
 
-The current v3.4 documents mark `v3.4` as a local tag candidate only. A matching tag is not implied unless it exists in Git.
-GitHub upload must use a separately reviewed public-safe workflow; the original repository should not receive a remote or be pushed directly.
+The public `v3.4` Git tag exists and points to the sanitized public v3.4 snapshot. GitHub upload used
+a separately reviewed public-safe workflow; the original repository should not receive a remote or be
+pushed directly.
 
 Start with:
 
@@ -89,6 +94,7 @@ Start with:
 - `docs/v3.4-final-cleanup.md`
 - `docs/v3.4-release-tag-planning.md`
 - `docs/v3.4-github-upload-preflight.md`
+- `docs/v3.4-public-github-final-verification.md`
 
 ## Verification
 
