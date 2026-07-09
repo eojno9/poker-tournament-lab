@@ -10,9 +10,10 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current public Git tag: `v2.9`
-- Public `main` is a sanitized 4-commit source history used for OSS review.
-- The `docs/v3.0-*`, `docs/v3.1-*`, and `docs/v3.2-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- Current public Git tag: `v3.5`
+- Public `main` is the latest sanitized public source snapshot used for OSS review.
+- v3.5 adds Korean-first Trainer UX improvements for off-table study, including local-only recent attempts, mistake review, retry handling, and local summary statistics.
+- Versioned planning, readiness, public-snapshot, and verification documents live under `docs/`.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
@@ -51,6 +52,7 @@ labeled, and missing exact results are not disguised as solved strategy.
 - Exact-key and canonical-key study helpers.
 - Read-only dry-run artifact review surfaces from earlier local verification work.
 - Copied-DB rehearsal planning helpers and safety documentation.
+- Korean-first Trainer practice UI with local-only review history and summary statistics.
 - Tests across core, server, and web workspaces.
 - Public snapshot and release-readiness documentation under `docs/`.
 
@@ -111,10 +113,10 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 ## Release And Documentation Map
 
 - Release history summary: `docs/RELEASE_HISTORY.md`
-- Current planning record: `docs/v3.2-plan.md`
-- Public GitHub final verification: `docs/v3.2-public-github-final-verification.md`
-- Public release wrap-up: `docs/v3.2-release-wrap-up.md`
-- v2.9 public tag documentation: `docs/v2.9-plan.md` and related `docs/v2.9-*` reports
+- Current planning record: `docs/v3.5-plan.md`
+- Public GitHub final verification: `docs/v3.5-public-github-final-verification.md`
+- Public upload preparation: `docs/v3.5-public-upload-preparation.md`
+- Release history summary: `docs/RELEASE_HISTORY.md`
 
 ## Known Limitations
 
@@ -122,7 +124,7 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 - Public refs do not include bundled data artifacts.
 - Non-README UTF-8 BOM occurrences are documented as a public-quality cleanup candidate.
 - The public repo has low social proof metrics; do not infer adoption from stars, forks, or downloads.
-- v3.x documents describe planning/readiness work unless a matching public tag is created.
+- Historical planning documents describe intermediate readiness work and safety reviews.
 
 ## Contributing And Security
 

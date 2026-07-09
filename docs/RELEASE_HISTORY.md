@@ -9,24 +9,37 @@ This repository is a sanitized public source snapshot of a previously private pr
 history may not reflect the full private development timeline. Detailed planning and verification
 documents are included so reviewers can audit the safety boundaries and release decisions.
 
-## Current Public Tag
+## Current Public Release
 
-### v2.9
+### v3.5
 
-`v2.9` is the current public Git tag.
+`v3.5` is the current public Git tag.
 
-The v2.9 documentation records a controlled off-table dry-run and classification stage. It does not
-add live assistance, production DB writes, product import routes, or bundled data artifacts to the
-public repository.
+The v3.5 public release records Korean-first Trainer UX improvements for off-table study,
+local-only mistake review, retry/resolved/dismissed flow, local summary statistics, and
+continued public safety boundaries.
+
+Public status:
+
+- public `main`: `ce1bda3ad175e6a39ff0f7b8cc084b065421f3f5`
+- public `v3.5` tag object: `b858a292a519bc097c3badeb222c0ec64ef478bc`
+- public `v3.5` peeled target: `ce1bda3ad175e6a39ff0f7b8cc084b065421f3f5`
+- GitHub Actions run `29009743246`: success
+- typecheck, test, build, and Playwright smoke: PASS
+- bundled data artifacts: none
+
+Node 20 deprecation annotations from GitHub-hosted actions are a non-blocking note. The workflow
+uses Node 24 and completed successfully.
 
 Start with:
 
-- `docs/v2.9-plan.md`
-- related `docs/v2.9-*` reports
+- `docs/v3.5-plan.md`
+- `docs/v3.5-public-upload-preparation.md`
+- `docs/v3.5-public-github-final-verification.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, and v3.5 documents for auditability. These documents describe
+The repository includes versioned documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
 dry-run package script verification, and Trainer UX planning.
 
@@ -80,7 +93,7 @@ v3.4 documents focus on the dry-run-only copied DB rehearsal package script, pos
 dependency maintenance, BOM cleanup, artifact hygiene, final release-readiness cleanup, and release/tag planning.
 
 The current v3.4 documents mark `v3.4` as a local tag candidate only. A matching tag is not implied unless it exists in Git.
-GitHub upload must use a separately reviewed public-safe workflow; the original repository should not receive a remote or be pushed directly.
+A separately reviewed public-safe workflow is required for GitHub publication; the original repository stays remote-free and outside the publication source.
 
 Start with:
 
@@ -90,7 +103,7 @@ Start with:
 - `docs/v3.4-release-tag-planning.md`
 - `docs/v3.4-github-upload-preflight.md`
 
-### v3.5 Planning
+### v3.5 Release Documents
 
 v3.5 focuses on Trainer UX improvements for off-table study,
 mistake review, position and filter-based sessions, local accuracy summaries, and
@@ -103,8 +116,7 @@ statistics. v3.5 closeout verification, release/tag planning, local annotated ta
 and local public upload folder verification are complete.
 
 The public upload folder has been updated from the local `v3.5` tag snapshot and verified
-locally with typecheck, tests, build, and smoke. GitHub upload and public tag push have not
-been performed in this step.
+locally with typecheck, tests, build, and smoke. GitHub main upload and public tag push are complete.
 
 Start with:
 
@@ -113,6 +125,7 @@ Start with:
 - `docs/v3.5-mistake-review-statistics.md`
 - `docs/v3.5-minimal-trainer-ux-implementation-plan.md`
 - `docs/v3.5-public-upload-preparation.md`
+- `docs/v3.5-public-github-final-verification.md`
 
 ## Verification
 
