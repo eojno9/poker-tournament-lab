@@ -24,7 +24,8 @@ function makeEntry(index: number, overrides: Partial<TrainerHistoryEntry> = {}):
       heroStackBb: 18,
       treeConfig: "open_shove_only",
       actionPath: ["FOLD", "HERO_DECISION"]
-    }
+    },
+    ...overrides
   };
 }
 
@@ -37,9 +38,14 @@ test("returns empty summary for no records", () => {
   assert.equal(summary.recentWindowAttempts, 0);
   assert.equal(summary.recentWindowAccuracyPct, null);
   assert.equal(summary.mistakeCount, 0);
+  assert.equal(summary.unresolvedMistakeCount, 0);
+  assert.equal(summary.resolvedMistakeCount, 0);
+  assert.equal(summary.dismissedMistakeCount, 0);
   assert.equal(summary.latestResult, null);
   assert.equal(summary.mostRecentMistake, null);
   assert.deepEqual(summary.byHand, []);
+  assert.deepEqual(summary.byPosition, []);
+  assert.deepEqual(summary.byAction, []);
 });
 
 test("calculates all-correct accuracy", () => {
@@ -70,6 +76,7 @@ test("calculates mixed accuracy and recent-window accuracy", () => {
   assert.equal(summary.recentWindowAttempts, 3);
   assert.equal(summary.recentWindowAccuracyPct, 66.67);
   assert.equal(summary.mistakeCount, 2);
+  assert.equal(summary.unresolvedMistakeCount, 2);
 });
 
 test("picks latest result and most recent mistake", () => {
@@ -98,4 +105,35 @@ test("builds byHand aggregates", () => {
   assert.equal(summary.byHand[0]?.correctCount, 2);
   assert.equal(summary.byHand[0]?.incorrectCount, 1);
   assert.equal(summary.byHand[0]?.accuracyPct, 66.67);
+});
+
+test("counts mistake statuses safely", () => {
+  const unresolved = makeEntry(0, { isCorrect: false, status: "unresolved" });
+  const resolved = makeEntry(1, { isCorrect: false, status: "resolved" });
+  const dismissed = makeEntry(2, { isCorrect: false, status: "dismissed" });
+  const legacy = makeEntry(3, { isCorrect: false });
+
+  const summary = buildTrainerSummary([], [unresolved, resolved, dismissed, legacy]);
+
+  assert.equal(summary.mistakeCount, 4);
+  assert.equal(summary.unresolvedMistakeCount, 2);
+  assert.equal(summary.resolvedMistakeCount, 1);
+  assert.equal(summary.dismissedMistakeCount, 1);
+});
+
+test("builds byPosition and byAction local stat buckets", () => {
+  const recent = [
+    makeEntry(0, { isCorrect: true, selectedAction: "SHOVE", spotSummary: { heroPosition: "BTN", tableSize: 6, heroStackBb: 18, treeConfig: "open_shove_only", actionPath: [] } }),
+    makeEntry(1, { isCorrect: false, selectedAction: "SHOVE", spotSummary: { heroPosition: "BTN", tableSize: 6, heroStackBb: 18, treeConfig: "open_shove_only", actionPath: [] } }),
+    makeEntry(2, { isCorrect: true, selectedAction: "FOLD", spotSummary: { heroPosition: "SB", tableSize: 6, heroStackBb: 12, treeConfig: "open_shove_only", actionPath: [] } })
+  ];
+
+  const summary = buildTrainerSummary(recent, []);
+
+  assert.equal(summary.byPosition[0]?.label, "BTN");
+  assert.equal(summary.byPosition[0]?.attempts, 2);
+  assert.equal(summary.byPosition[0]?.accuracyPct, 50);
+  assert.equal(summary.byAction[0]?.label, "SHOVE");
+  assert.equal(summary.byAction[0]?.attempts, 2);
+  assert.equal(summary.byAction[0]?.accuracyPct, 50);
 });

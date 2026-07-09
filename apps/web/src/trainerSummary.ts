@@ -8,6 +8,14 @@ export interface TrainerSummaryByHand {
   accuracyPct: number;
 }
 
+export interface TrainerSummaryBucket {
+  label: string;
+  attempts: number;
+  correctCount: number;
+  incorrectCount: number;
+  accuracyPct: number;
+}
+
 export interface TrainerSummary {
   totalAttempts: number;
   correctCount: number;
@@ -16,9 +24,14 @@ export interface TrainerSummary {
   recentWindowAttempts: number;
   recentWindowAccuracyPct: number | null;
   mistakeCount: number;
+  unresolvedMistakeCount: number;
+  resolvedMistakeCount: number;
+  dismissedMistakeCount: number;
   latestResult: TrainerHistoryEntry | null;
   mostRecentMistake: TrainerHistoryEntry | null;
   byHand: TrainerSummaryByHand[];
+  byPosition: TrainerSummaryBucket[];
+  byAction: TrainerSummaryBucket[];
 }
 
 export interface BuildTrainerSummaryOptions {
@@ -52,8 +65,12 @@ export function buildTrainerSummary(
   const recentWindowAccuracyPct = recentWindowAttempts > 0 ? toPct(recentWindowCorrectCount, recentWindowAttempts) : null;
 
   const mistakeCount = mistakeRecords.length;
+  const unresolvedMistakeCount = mistakeRecords.filter((record) => !record.status || record.status === "unresolved").length;
+  const resolvedMistakeCount = mistakeRecords.filter((record) => record.status === "resolved").length;
+  const dismissedMistakeCount = mistakeRecords.filter((record) => record.status === "dismissed").length;
+  const unresolvedMistakes = mistakeRecords.filter((record) => !record.status || record.status === "unresolved");
   const latestResult = recentRecords[0] ?? null;
-  const mostRecentMistake = mistakeRecords[0] ?? recentRecords.find((record) => !record.isCorrect) ?? null;
+  const mostRecentMistake = unresolvedMistakes[0] ?? recentRecords.find((record) => !record.isCorrect) ?? null;
 
   const byHandMap = new Map<string, { attempts: number; correctCount: number; incorrectCount: number }>();
   for (const record of recentRecords) {
@@ -84,6 +101,9 @@ export function buildTrainerSummary(
     })
     .slice(0, maxByHandRows);
 
+  const byPosition = buildSummaryBuckets(recentRecords, (record) => record.spotSummary.heroPosition || "제공되지 않음");
+  const byAction = buildSummaryBuckets(recentRecords, (record) => record.selectedAction || "제공되지 않음");
+
   return {
     totalAttempts,
     correctCount,
@@ -92,10 +112,45 @@ export function buildTrainerSummary(
     recentWindowAttempts,
     recentWindowAccuracyPct,
     mistakeCount,
+    unresolvedMistakeCount,
+    resolvedMistakeCount,
+    dismissedMistakeCount,
     latestResult,
     mostRecentMistake,
-    byHand
+    byHand,
+    byPosition,
+    byAction
   };
+}
+
+function buildSummaryBuckets(records: TrainerHistoryEntry[], getLabel: (record: TrainerHistoryEntry) => string): TrainerSummaryBucket[] {
+  const bucketMap = new Map<string, { attempts: number; correctCount: number; incorrectCount: number }>();
+  for (const record of records) {
+    const label = getLabel(record).trim() || "제공되지 않음";
+    const stats = bucketMap.get(label) ?? { attempts: 0, correctCount: 0, incorrectCount: 0 };
+    stats.attempts += 1;
+    if (record.isCorrect) {
+      stats.correctCount += 1;
+    } else {
+      stats.incorrectCount += 1;
+    }
+    bucketMap.set(label, stats);
+  }
+
+  return [...bucketMap.entries()]
+    .map(([label, stats]) => ({
+      label,
+      attempts: stats.attempts,
+      correctCount: stats.correctCount,
+      incorrectCount: stats.incorrectCount,
+      accuracyPct: toPct(stats.correctCount, stats.attempts)
+    }))
+    .sort((left, right) => {
+      if (right.attempts !== left.attempts) {
+        return right.attempts - left.attempts;
+      }
+      return left.label.localeCompare(right.label);
+    });
 }
 
 function toPct(numerator: number, denominator: number): number {

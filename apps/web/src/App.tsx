@@ -108,9 +108,11 @@ import {
   addTrainerRecentHistory,
   clearTrainerMistakesHistory,
   clearTrainerRecentHistory,
+  dismissTrainerMistakeHistory,
   loadTrainerMistakesHistory,
   loadTrainerRecentHistory,
-  type TrainerHistoryEntry
+  type TrainerHistoryEntry,
+  type TrainerMistakeStatus
 } from "./trainerHistory.js";
 import {
   buildTrainerSourceSolutions,
@@ -122,7 +124,7 @@ import {
   resolveTrainerSolutionIndex,
   type TrainerProblemFilters
 } from "./trainerOptions.js";
-import { buildTrainerSummary } from "./trainerSummary.js";
+import { buildTrainerSummary, type TrainerSummaryBucket } from "./trainerSummary.js";
 import { buildSensitivitySummaryFromAnalyzeResult } from "./sensitivityAdapter.js";
 import { buildEvComparisonFromAnalyzeResult } from "./evComparisonAdapter.js";
 import { buildRangePresetComparisonFromAnalyzeResult } from "./rangePresetComparisonAdapter.js";
@@ -1975,46 +1977,66 @@ function TrainerView() {
     setTrainerMistakes([]);
   }
 
+  function onRetryTrainerMistake(entry: TrainerHistoryEntry) {
+    setFilters({
+      heroPosition: entry.spotSummary.heroPosition,
+      tableSize: String(entry.spotSummary.tableSize),
+      treeConfig: entry.spotSummary.treeConfig ?? "",
+      sourceFile: ""
+    });
+    setHandInput(entry.hand);
+    setSeedInput("");
+    setCursor(0);
+    setGrade(null);
+    setSelectedAction(null);
+  }
+
+  function onDismissTrainerMistake(id: string) {
+    setTrainerMistakes(dismissTrainerMistakeHistory(id));
+  }
+
   function resetTrainerFilters() {
     setFilters(defaultTrainerProblemFilters);
     setCursor(0);
   }
 
   const filterSummary = [
-    filters.heroPosition ? `hero=${filters.heroPosition}` : null,
-    filters.tableSize ? `table=${filters.tableSize}` : null,
-    filters.treeConfig ? `tree=${filters.treeConfig}` : null,
-    filters.sourceFile ? `file~${filters.sourceFile}` : null
+    filters.heroPosition ? `포지션=${filters.heroPosition}` : null,
+    filters.tableSize ? `인원=${filters.tableSize}` : null,
+    filters.treeConfig ? `트리=${filters.treeConfig}` : null,
+    filters.sourceFile ? `소스~${filters.sourceFile}` : null
   ]
     .filter((item): item is string => Boolean(item))
     .join(" / ");
-  const handSummary = normalizeTrainerHandInput(handInput) ? `hand 고정: ${normalizeTrainerHandInput(handInput)}` : "hand 자동 선택(deterministic)";
+  const handSummary = normalizeTrainerHandInput(handInput) ? `핸드 고정: ${normalizeTrainerHandInput(handInput)}` : "핸드 자동 선택(결정적 선택)";
   const trainerSummary = useMemo(
     () => buildTrainerSummary(trainerRecent, trainerMistakes, { recentWindowSize: 10, maxByHandRows: 5 }),
     [trainerRecent, trainerMistakes]
   );
+  const visibleTrainerMistakes = trainerMistakes.filter((entry) => !entry.status || entry.status === "unresolved");
 
   return (
     <section className="workspace-grid">
       <div className="panel stack">
         <div className="panel-title">
           <GraduationCap size={18} />
-          <h2>Trainer</h2>
+          <h2>Trainer 학습</h2>
           <button className="icon-button" onClick={() => void refreshProblems()} type="button" title="문제 새로고침">
             <RefreshCw size={16} />
           </button>
         </div>
 
         <div className="notice">
-          <p>오프테이블 학습용 문제입니다.</p>
-          <p>Trainer 기본 문제는 HRC_PRECOMPUTED_DB만 사용하며 FALLBACK_ICM / NOT_SOLVED는 제외됩니다.</p>
+          <p>이 Trainer는 오프테이블 학습 전용입니다.</p>
+          <p>실시간 플레이 보조, 화면 캡처, OCR, 오버레이, 핫키, 포커 클라이언트 연동 기능은 제공하지 않습니다.</p>
+          <p>학습 기록은 이 브라우저의 로컬 저장소에만 저장됩니다.</p>
         </div>
 
         <div className="editor-block" data-testid="trainer-filter-controls">
-          <h3>문제 선택 옵션</h3>
+          <h3>학습 문제 선택</h3>
           <div className="form-grid">
             <label>
-              Hero position
+              포지션
               <select
                 value={filters.heroPosition}
                 onChange={(event) => setFilters((previous) => ({ ...previous, heroPosition: event.target.value }))}
@@ -2029,7 +2051,7 @@ function TrainerView() {
               </select>
             </label>
             <label>
-              Table size
+              테이블 인원
               <select
                 value={filters.tableSize}
                 onChange={(event) => setFilters((previous) => ({ ...previous, tableSize: event.target.value }))}
@@ -2044,7 +2066,7 @@ function TrainerView() {
               </select>
             </label>
             <label>
-              Tree config
+              트리 유형
               <select
                 value={filters.treeConfig}
                 onChange={(event) => setFilters((previous) => ({ ...previous, treeConfig: event.target.value }))}
@@ -2059,7 +2081,7 @@ function TrainerView() {
               </select>
             </label>
             <label>
-              Source file contains
+              로컬 소스 필터
               <input
                 value={filters.sourceFile}
                 onChange={(event) => setFilters((previous) => ({ ...previous, sourceFile: event.target.value }))}
@@ -2067,11 +2089,11 @@ function TrainerView() {
               />
             </label>
             <label>
-              Hand 입력 (예: AKo, K8s, 22)
+              핸드 입력 (예: AKo, K8s, 22)
               <input value={handInput} onChange={(event) => setHandInput(event.target.value)} data-testid="trainer-hand-input" />
             </label>
             <label>
-              Seed
+              시드
               <input value={seedInput} onChange={(event) => setSeedInput(event.target.value)} data-testid="trainer-seed-input" />
             </label>
           </div>
@@ -2094,7 +2116,7 @@ function TrainerView() {
         {!loading && !problem && (
           <div className="notice not-solved-help">
             <p>{problemError ?? "Trainer 문제를 생성할 수 없습니다."}</p>
-            <p>HRC import 데이터가 없거나 strategy 정보가 비어 있으면 Trainer 문제를 만들 수 없습니다.</p>
+            <p>로컬에 설정된 사전 계산 학습 데이터가 없거나 strategy 정보가 비어 있으면 Trainer 문제를 만들 수 없습니다.</p>
           </div>
         )}
 
@@ -2102,14 +2124,14 @@ function TrainerView() {
           <div className="result-block" data-testid="trainer-problem-card">
             <h3>문제 카드</h3>
             <div className="detail-grid">
-              <ResultDetailItem label="Hero position" value={problem.spotSummary.heroPosition} />
-              <ResultDetailItem label="Table size" value={String(problem.spotSummary.tableSize)} />
-              <ResultDetailItem label="Hero stack (BB)" value={formatBb(problem.spotSummary.heroStackBb)} />
-              <ResultDetailItem label="Tree config" value={problem.spotSummary.treeConfig ?? "제공되지 않음"} />
-              <ResultDetailItem label="Hand" value={problem.hand} />
-              <ResultDetailItem label="Source" value={problem.source} />
+              <ResultDetailItem label="포지션" value={problem.spotSummary.heroPosition} />
+              <ResultDetailItem label="테이블 인원" value={String(problem.spotSummary.tableSize)} />
+              <ResultDetailItem label="스택(BB)" value={formatBb(problem.spotSummary.heroStackBb)} />
+              <ResultDetailItem label="트리 유형" value={problem.spotSummary.treeConfig ?? "제공되지 않음"} />
+              <ResultDetailItem label="핸드" value={problem.hand} />
+              <ResultDetailItem label="데이터 범위" value={formatTrainerSourceLabel(problem.source)} />
             </div>
-            <p className="muted">action path: {problem.spotSummary.actionPath.join(", ")}</p>
+            <p className="muted">액션 경로: {problem.spotSummary.actionPath.join(", ")}</p>
             <code>{problem.canonicalKey.slice(0, 88)}...</code>
 
             <div className="trainer-actions">
@@ -2119,7 +2141,7 @@ function TrainerView() {
                 onClick={() => onAnswer("SHOVE")}
                 data-testid="trainer-shove-button"
               >
-                SHOVE
+                올인(Shove)
               </button>
               <button
                 className={`primary-action ${selectedAction === "FOLD" ? "selected-answer" : ""}`}
@@ -2127,7 +2149,7 @@ function TrainerView() {
                 onClick={() => onAnswer("FOLD")}
                 data-testid="trainer-fold-button"
               >
-                FOLD
+                폴드(Fold)
               </button>
               <button className="preset-action" type="button" onClick={onNextProblem} data-testid="trainer-next-button">
                 다음 문제
@@ -2145,16 +2167,16 @@ function TrainerView() {
 
         <div className="result-block" data-testid="trainer-summary-card">
           <h3>학습 요약</h3>
-          <p className="muted">localStorage 기반 오프테이블 학습 기록입니다.</p>
+          <p className="muted">통계는 이 기기의 로컬 Trainer 기록만 기준으로 계산합니다.</p>
           {trainerSummary.totalAttempts === 0 ? (
-            <p className="muted">아직 Trainer 기록이 없습니다.</p>
+            <p className="muted">아직 학습 기록이 없습니다.</p>
           ) : (
             <>
               <div className="detail-grid">
-                <ResultDetailItem label="전체 풀이 수" value={String(trainerSummary.totalAttempts)} />
-                <ResultDetailItem label="정답 수" value={String(trainerSummary.correctCount)} />
-                <ResultDetailItem label="오답 수" value={String(trainerSummary.incorrectCount)} />
-                <ResultDetailItem label="전체 정답률" value={formatSummaryPct(trainerSummary.accuracyPct)} />
+                <ResultDetailItem label="총 시도" value={String(trainerSummary.totalAttempts)} />
+                <ResultDetailItem label="정답" value={String(trainerSummary.correctCount)} />
+                <ResultDetailItem label="오답" value={String(trainerSummary.incorrectCount)} />
+                <ResultDetailItem label="정답률" value={formatSummaryPct(trainerSummary.accuracyPct)} />
                 <ResultDetailItem
                   label="최근 10문제 정답률"
                   value={
@@ -2163,7 +2185,9 @@ function TrainerView() {
                       : "제공되지 않음"
                   }
                 />
-                <ResultDetailItem label="오답 노트 개수" value={String(trainerSummary.mistakeCount)} />
+                <ResultDetailItem label="미해결 오답" value={String(trainerSummary.unresolvedMistakeCount)} />
+                <ResultDetailItem label="해결된 오답" value={String(trainerSummary.resolvedMistakeCount)} />
+                <ResultDetailItem label="숨긴 오답" value={String(trainerSummary.dismissedMistakeCount)} />
               </div>
               <p className="muted" data-testid="trainer-summary-total-attempts">totalAttempts: {trainerSummary.totalAttempts}</p>
               <p className="muted" data-testid="trainer-summary-accuracy">accuracy: {formatSummaryPct(trainerSummary.accuracyPct)}</p>
@@ -2171,12 +2195,12 @@ function TrainerView() {
               <div className="meta-list">
                 <p>
                   <strong>가장 최근 결과</strong>: {trainerSummary.latestResult
-                    ? `${trainerSummary.latestResult.hand} / ${trainerSummary.latestResult.selectedAction} → ${trainerSummary.latestResult.correctAction} (${trainerSummary.latestResult.isCorrect ? "정답" : "오답"})`
+                    ? `${trainerSummary.latestResult.hand} / ${formatTrainerActionLabel(trainerSummary.latestResult.selectedAction)} → ${formatTrainerActionLabel(trainerSummary.latestResult.correctAction)} (${trainerSummary.latestResult.isCorrect ? "정답" : "오답"})`
                     : "제공되지 않음"}
                 </p>
                 <p>
                   <strong>가장 최근 오답</strong>: {trainerSummary.mostRecentMistake
-                    ? `${trainerSummary.mostRecentMistake.hand} / ${trainerSummary.mostRecentMistake.selectedAction} → ${trainerSummary.mostRecentMistake.correctAction}`
+                    ? `${trainerSummary.mostRecentMistake.hand} / ${formatTrainerActionLabel(trainerSummary.mostRecentMistake.selectedAction)} → ${formatTrainerActionLabel(trainerSummary.mostRecentMistake.correctAction)}`
                     : "오답 없음"}
                 </p>
               </div>
@@ -2184,11 +2208,11 @@ function TrainerView() {
               {trainerSummary.byHand.length > 0 ? (
                 <div className="range-table" role="table" aria-label="trainer by hand summary">
                   <div className="range-row range-head" role="row">
-                    <span>hand</span>
-                    <span>attempts</span>
-                    <span>correct</span>
-                    <span>incorrect</span>
-                    <span>accuracy</span>
+                    <span>핸드</span>
+                    <span>시도</span>
+                    <span>정답</span>
+                    <span>오답</span>
+                    <span>정답률</span>
                   </div>
                   {trainerSummary.byHand.map((row) => (
                     <div className="range-row" role="row" key={row.hand}>
@@ -2201,6 +2225,12 @@ function TrainerView() {
                   ))}
                 </div>
               ) : null}
+              {trainerSummary.byPosition.length > 0 ? (
+                <TrainerSummaryBucketTable title="포지션별 요약" rows={trainerSummary.byPosition} formatLabel={(label) => label} />
+              ) : null}
+              {trainerSummary.byAction.length > 0 ? (
+                <TrainerSummaryBucketTable title="액션별 요약" rows={trainerSummary.byAction} formatLabel={formatTrainerActionLabel} />
+              ) : null}
             </>
           )}
         </div>
@@ -2208,28 +2238,29 @@ function TrainerView() {
         {!problem ? (
           <p className="muted">문제를 먼저 불러와 주세요.</p>
         ) : !grade ? (
-          <p className="muted">SHOVE 또는 FOLD를 선택하면 결과가 표시됩니다.</p>
+          <p className="muted">올인(Shove) 또는 폴드(Fold)를 선택하면 결과가 표시됩니다.</p>
         ) : (
           <div className="result-block" data-testid="trainer-result-card">
             <h3>채점 결과</h3>
             <div className={`notice ${grade.isCorrect ? "success" : ""}`}>
               <p>{grade.isCorrect ? "정답입니다." : "오답입니다."}</p>
+              {!grade.isCorrect ? <p>다시 풀어볼 수 있습니다.</p> : null}
             </div>
             <div className="detail-grid">
-              <ResultDetailItem label="선택한 action" value={grade.selectedAction} />
-              <ResultDetailItem label="정답 action" value={grade.correctAction} />
-              <ResultDetailItem label="frequency" value={grade.frequency.toFixed(3)} />
+              <ResultDetailItem label="선택한 액션" value={formatTrainerActionLabel(grade.selectedAction)} />
+              <ResultDetailItem label="정답 액션" value={formatTrainerActionLabel(grade.correctAction)} />
+              <ResultDetailItem label="빈도" value={grade.frequency.toFixed(3)} />
               <ResultDetailItem label="EV" value={grade.evLabel} />
-              <ResultDetailItem label="source" value={problem.source} />
+              <ResultDetailItem label="데이터 범위" value={formatTrainerSourceLabel(problem.source)} />
               <ResultDetailItem label="canonical key" value={`${problem.canonicalKey.slice(0, 60)}...`} />
             </div>
-            <InfoList title="Explanation" items={problem.explanation} />
+            <InfoList title="풀이 설명" items={problem.explanation} />
           </div>
         )}
 
         <div className="editor-block" data-testid="trainer-recent-section">
           <div className="panel-title">
-            <h3>최근 퀴즈</h3>
+            <h3>최근 기록</h3>
             <button className="preset-action danger" type="button" onClick={onClearTrainerRecent} data-testid="trainer-clear-recent-button">
               <Trash2 size={14} />
               전체 삭제
@@ -2243,11 +2274,11 @@ function TrainerView() {
                 <div className="recent-row" key={entry.id} data-testid="trainer-recent-row">
                   <div className="recent-summary">
                     <strong>
-                      {entry.hand} · {entry.selectedAction} → {entry.correctAction}
+                      {entry.hand} · {formatTrainerActionLabel(entry.selectedAction)} → {formatTrainerActionLabel(entry.correctAction)}
                     </strong>
-                    <span>{entry.isCorrect ? "정답" : "오답"} · {entry.source}</span>
+                    <span>{entry.isCorrect ? "정답" : "오답"} · {formatTrainerSourceLabel(entry.source)}</span>
                     <span>
-                      freq {entry.frequency.toFixed(3)} · EV {entry.evLabel}
+                      빈도 {entry.frequency.toFixed(3)} · EV {entry.evLabel}
                     </span>
                     <span>
                       {entry.spotSummary.heroPosition} / {entry.spotSummary.tableSize}명
@@ -2262,25 +2293,34 @@ function TrainerView() {
 
         <div className="editor-block" data-testid="trainer-mistakes-section">
           <div className="panel-title">
-            <h3>오답 노트</h3>
+            <h3>오답 복습</h3>
             <button className="preset-action danger" type="button" onClick={onClearTrainerMistakes} data-testid="trainer-clear-mistakes-button">
               <Trash2 size={14} />
-              전체 삭제
+              오답 기록 지우기
             </button>
           </div>
-          {trainerMistakes.length === 0 ? (
-            <p className="muted">오답 기록이 없습니다.</p>
+          {visibleTrainerMistakes.length === 0 ? (
+            <p className="muted">아직 저장된 오답이 없습니다. 틀린 문제는 이 브라우저의 로컬 저장소에만 저장됩니다.</p>
           ) : (
             <div className="recent-list" data-testid="trainer-mistakes-list">
-              {trainerMistakes.map((entry) => (
+              {visibleTrainerMistakes.map((entry) => (
                 <div className="recent-row" key={entry.id} data-testid="trainer-mistake-row">
                   <div className="recent-summary">
                     <strong>
-                      {entry.hand} · {entry.selectedAction} → {entry.correctAction}
+                      {entry.hand} · {formatTrainerActionLabel(entry.selectedAction)} → {formatTrainerActionLabel(entry.correctAction)}
                     </strong>
-                    <span>{entry.source}</span>
+                    <span>{formatTrainerMistakeStatusLabel(entry.status)} · 재시도 {entry.retryCount ?? 0}회</span>
+                    <span>{formatTrainerSourceLabel(entry.source)}</span>
                     <span>{entry.spotSummary.heroPosition} / {entry.spotSummary.tableSize}명</span>
                     <span>{new Date(entry.createdAt).toLocaleString("ko-KR")}</span>
+                  </div>
+                  <div className="recent-actions">
+                    <button className="preset-action" type="button" onClick={() => onRetryTrainerMistake(entry)} data-testid="trainer-retry-mistake-button">
+                      다시 풀기
+                    </button>
+                    <button className="preset-action danger" type="button" onClick={() => onDismissTrainerMistake(entry.id)} data-testid="trainer-dismiss-mistake-button">
+                      숨기기
+                    </button>
                   </div>
                 </div>
               ))}
@@ -2290,6 +2330,74 @@ function TrainerView() {
       </div>
     </section>
   );
+}
+
+function TrainerSummaryBucketTable({
+  title,
+  rows,
+  formatLabel
+}: {
+  title: string;
+  rows: TrainerSummaryBucket[];
+  formatLabel: (label: string) => string;
+}) {
+  return (
+    <div>
+      <h4>{title}</h4>
+      <div className="range-table" role="table" aria-label={title}>
+        <div className="range-row range-head" role="row">
+          <span>항목</span>
+          <span>시도</span>
+          <span>정답</span>
+          <span>오답</span>
+          <span>정답률</span>
+        </div>
+        {rows.map((row) => (
+          <div className="range-row" role="row" key={row.label}>
+            <span>{formatLabel(row.label)}</span>
+            <span>{row.attempts}</span>
+            <span>{row.correctCount}</span>
+            <span>{row.incorrectCount}</span>
+            <span>{formatSummaryPct(row.accuracyPct)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function formatTrainerActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    SHOVE: "올인(Shove)",
+    FOLD: "폴드(Fold)",
+    CALL: "콜(Call)",
+    RAISE: "레이즈(Raise)",
+    MIXED: "혼합(Mixed)"
+  };
+  return labels[action] ?? action;
+}
+
+function formatTrainerSourceLabel(source: TrainerHistoryEntry["source"]): string {
+  if (source === RESULT_SOURCES.HRC_PRECOMPUTED_DB) {
+    return "로컬 사전 계산 학습 데이터";
+  }
+  if (source === RESULT_SOURCES.FALLBACK_ICM) {
+    return "대체 평가";
+  }
+  if (source === RESULT_SOURCES.NOT_SOLVED) {
+    return "해결되지 않음";
+  }
+  return "로컬 학습 데이터";
+}
+
+function formatTrainerMistakeStatusLabel(status: TrainerMistakeStatus | undefined): string {
+  if (status === "resolved") {
+    return "해결됨";
+  }
+  if (status === "dismissed") {
+    return "숨김";
+  }
+  return "미해결";
 }
 
 function AnalyzePlayerRow({

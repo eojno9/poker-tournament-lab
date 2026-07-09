@@ -895,7 +895,9 @@ test.describe("v1.2 smoke", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Trainer", exact: true }).click();
 
-    await expect(page.getByRole("heading", { name: /^Trainer$/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Trainer 학습" })).toBeVisible();
+    await expect(page.getByText("이 Trainer는 오프테이블 학습 전용입니다.")).toBeVisible();
+    await expect(page.getByText("실시간 플레이 보조, 화면 캡처, OCR, 오버레이, 핫키, 포커 클라이언트 연동 기능은 제공하지 않습니다.")).toBeVisible();
     await expect(page.getByTestId("trainer-filter-controls")).toBeVisible();
     await expect(page.getByTestId("trainer-filter-hero-position")).toBeVisible();
     await expect(page.getByTestId("trainer-filter-table-size")).toBeVisible();
@@ -906,12 +908,13 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("trainer-filter-reset-button")).toBeVisible();
     await expect(page.getByTestId("trainer-candidate-count")).toContainText("후보 문제");
     await expect(page.getByTestId("trainer-summary-card")).toBeVisible();
-    await expect(page.getByTestId("trainer-summary-card")).toContainText("아직 Trainer 기록이 없습니다.");
+    await expect(page.getByTestId("trainer-summary-card")).toContainText("아직 학습 기록이 없습니다.");
     await expect(page.getByTestId("trainer-problem-card")).toBeVisible();
-    await expect(page.getByText("오프테이블 학습용 문제입니다")).toBeVisible();
-    await expect(page.getByTestId("trainer-problem-card")).toContainText("HRC_PRECOMPUTED_DB");
+    await expect(page.getByTestId("trainer-problem-card")).toContainText("로컬 사전 계산 학습 데이터");
     await expect(page.getByTestId("trainer-shove-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-shove-button")).toContainText("올인(Shove)");
     await expect(page.getByTestId("trainer-fold-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-fold-button")).toContainText("폴드(Fold)");
     await expect(page.getByTestId("trainer-recent-section")).toBeVisible();
     await expect(page.getByTestId("trainer-mistakes-section")).toBeVisible();
     await expect(page.getByTestId("trainer-clear-recent-button")).toBeVisible();
@@ -919,8 +922,8 @@ test.describe("v1.2 smoke", () => {
 
     await page.getByTestId("trainer-shove-button").click();
     await expect(page.getByTestId("trainer-result-card")).toBeVisible();
-    await expect(page.getByTestId("trainer-result-card")).toContainText("선택한 action");
-    await expect(page.getByTestId("trainer-result-card")).toContainText("정답 action");
+    await expect(page.getByTestId("trainer-result-card")).toContainText("선택한 액션");
+    await expect(page.getByTestId("trainer-result-card")).toContainText("정답 액션");
     await expect(page.getByTestId("trainer-recent-list")).toBeVisible();
     await expect(page.getByTestId("trainer-recent-row")).toHaveCount(1);
     await expect(page.getByTestId("trainer-summary-total-attempts")).toContainText("1");
@@ -929,6 +932,8 @@ test.describe("v1.2 smoke", () => {
     await page.getByTestId("trainer-fold-button").click();
     await expect(page.getByTestId("trainer-mistakes-list")).toBeVisible();
     await expect(page.getByTestId("trainer-mistake-row").first()).toBeVisible();
+    await expect(page.getByTestId("trainer-retry-mistake-button").first()).toContainText("다시 풀기");
+    await expect(page.getByTestId("trainer-dismiss-mistake-button").first()).toContainText("숨기기");
   });
 
   test("renders source states and updates recent analyses", async ({ page }) => {

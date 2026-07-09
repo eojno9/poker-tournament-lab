@@ -5,6 +5,8 @@ export interface StorageLike {
   setItem(key: string, value: string): void;
 }
 
+export type TrainerMistakeStatus = "unresolved" | "resolved" | "dismissed";
+
 export interface TrainerHistoryEntry {
   id: string;
   createdAt: string;
@@ -18,6 +20,11 @@ export interface TrainerHistoryEntry {
   evLabel: string;
   source: ResultSource;
   spotSummary: TrainerProblemSpotSummary;
+  firstAttemptId?: string;
+  latestAttemptId?: string;
+  lastReviewedAt?: string;
+  retryCount?: number;
+  status?: TrainerMistakeStatus;
 }
 
 export interface AddTrainerHistoryInput {
@@ -33,8 +40,8 @@ export interface AddTrainerHistoryInput {
   spotSummary: TrainerProblemSpotSummary;
 }
 
-export const TRAINER_RECENT_STORAGE_KEY = "poker-tournament-lab:trainer-recent:v1";
-export const TRAINER_MISTAKES_STORAGE_KEY = "poker-tournament-lab:trainer-mistakes:v1";
+export const TRAINER_RECENT_STORAGE_KEY = "ptl.trainer.recentAttempts.v1";
+export const TRAINER_MISTAKES_STORAGE_KEY = "ptl.trainer.mistakes.v1";
 
 const TRAINER_RECENT_MAX = 30;
 const TRAINER_MISTAKES_MAX = 50;
@@ -60,10 +67,81 @@ export function addTrainerMistakeHistory(
   storage: StorageLike | null = resolveStorage(),
   now: Date = new Date()
 ): TrainerHistoryEntry[] {
-  if (entry.isCorrect) {
-    return loadTrainerMistakesHistory(storage);
+  if (!storage) {
+    return [];
   }
-  return addHistoryEntry(TRAINER_MISTAKES_STORAGE_KEY, TRAINER_MISTAKES_MAX, entry, storage, now);
+  const normalized = normalizeAddInput(entry, now);
+  const existing = loadTrainerMistakesHistory(storage);
+  const existingIndex = existing.findIndex((item) => isSameMistakeSpot(item, normalized));
+
+  if (entry.isCorrect) {
+    if (existingIndex < 0) {
+      return existing;
+    }
+    const existingItem = existing[existingIndex]!;
+    const updated: TrainerHistoryEntry = {
+      ...existingItem,
+      latestAttemptId: normalized.id,
+      lastReviewedAt: normalized.createdAt,
+      retryCount: (existingItem.retryCount ?? 0) + 1,
+      status: "resolved"
+    };
+    const next = [updated, ...existing.filter((_, index) => index !== existingIndex)].slice(0, TRAINER_MISTAKES_MAX);
+    saveHistory(TRAINER_MISTAKES_STORAGE_KEY, next, storage);
+    return next;
+  }
+
+  if (existingIndex >= 0) {
+    const existingItem = existing[existingIndex]!;
+    const updated: TrainerHistoryEntry = {
+      ...normalized,
+      id: existingItem.id,
+      createdAt: existingItem.createdAt,
+      firstAttemptId: existingItem.firstAttemptId ?? existingItem.latestAttemptId ?? existingItem.id,
+      latestAttemptId: normalized.id,
+      lastReviewedAt: normalized.createdAt,
+      retryCount: (existingItem.retryCount ?? 0) + 1,
+      status: "unresolved"
+    };
+    const next = [updated, ...existing.filter((_, index) => index !== existingIndex)].slice(0, TRAINER_MISTAKES_MAX);
+    saveHistory(TRAINER_MISTAKES_STORAGE_KEY, next, storage);
+    return next;
+  }
+
+  const next = [
+    {
+      ...normalized,
+      firstAttemptId: normalized.id,
+      latestAttemptId: normalized.id,
+      retryCount: 0,
+      status: "unresolved" as const
+    },
+    ...existing
+  ].slice(0, TRAINER_MISTAKES_MAX);
+  saveHistory(TRAINER_MISTAKES_STORAGE_KEY, next, storage);
+  return next;
+}
+
+export function dismissTrainerMistakeHistory(
+  id: string,
+  storage: StorageLike | null = resolveStorage(),
+  now: Date = new Date()
+): TrainerHistoryEntry[] {
+  if (!storage) {
+    return [];
+  }
+  const existing = loadTrainerMistakesHistory(storage);
+  const next = existing.map((entry) =>
+    entry.id === id
+      ? {
+          ...entry,
+          lastReviewedAt: normalizeIso(now.toISOString()),
+          status: "dismissed" as const
+        }
+      : entry
+  );
+  saveHistory(TRAINER_MISTAKES_STORAGE_KEY, next, storage);
+  return next;
 }
 
 export function clearTrainerRecentHistory(storage: StorageLike | null = resolveStorage()): void {
@@ -97,7 +175,7 @@ function addHistoryEntry(
       !(item.canonicalKey === normalized.canonicalKey && item.hand === normalized.hand && item.selectedAction === normalized.selectedAction)
   );
   const next = [normalized, ...deduped].slice(0, maxCount);
-  storage.setItem(key, JSON.stringify(next));
+  saveHistory(key, next, storage);
   return next;
 }
 
@@ -186,8 +264,27 @@ function normalizeLoadedEntry(value: unknown): TrainerHistoryEntry | null {
     ev: typeof entry.ev === "number" && Number.isFinite(entry.ev) ? entry.ev : null,
     evLabel: entry.evLabel,
     source: entry.source,
-    spotSummary
+    spotSummary,
+    ...(typeof entry.firstAttemptId === "string" ? { firstAttemptId: entry.firstAttemptId } : {}),
+    ...(typeof entry.latestAttemptId === "string" ? { latestAttemptId: entry.latestAttemptId } : {}),
+    ...(typeof entry.lastReviewedAt === "string" ? { lastReviewedAt: normalizeIso(entry.lastReviewedAt) } : {}),
+    ...(typeof entry.retryCount === "number" && Number.isFinite(entry.retryCount) && entry.retryCount >= 0
+      ? { retryCount: Math.trunc(entry.retryCount) }
+      : {}),
+    ...(isTrainerMistakeStatus(entry.status) ? { status: entry.status } : {})
   };
+}
+
+function isSameMistakeSpot(left: TrainerHistoryEntry, right: TrainerHistoryEntry): boolean {
+  return (
+    left.canonicalKey === right.canonicalKey &&
+    left.hand === right.hand &&
+    left.spotSummary.heroPosition === right.spotSummary.heroPosition
+  );
+}
+
+function saveHistory(key: string, entries: TrainerHistoryEntry[], storage: StorageLike): void {
+  storage.setItem(key, JSON.stringify(entries));
 }
 
 function normalizeSpotSummary(value: unknown): TrainerProblemSpotSummary | null {
@@ -242,6 +339,10 @@ function normalizeIso(value: unknown): string {
 
 function isKnownSource(value: unknown): value is ResultSource {
   return value === RESULT_SOURCES.HRC_PRECOMPUTED_DB || value === RESULT_SOURCES.FALLBACK_ICM || value === RESULT_SOURCES.NOT_SOLVED;
+}
+
+function isTrainerMistakeStatus(value: unknown): value is TrainerMistakeStatus {
+  return value === "unresolved" || value === "resolved" || value === "dismissed";
 }
 
 function createEntryId(): string {

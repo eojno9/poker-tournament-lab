@@ -8,6 +8,7 @@ import {
   addTrainerRecentHistory,
   clearTrainerMistakesHistory,
   clearTrainerRecentHistory,
+  dismissTrainerMistakeHistory,
   loadTrainerMistakesHistory,
   loadTrainerRecentHistory,
   type StorageLike
@@ -161,6 +162,7 @@ test("stores only incorrect answers in mistakes and keeps maximum 50", () => {
   assert.equal(mistakes.length, 50);
   assert.equal(mistakes[0]?.canonicalKey, "mistake-54");
   assert.equal(mistakes[49]?.canonicalKey, "mistake-5");
+  assert.equal(mistakes[0]?.status, "unresolved");
 });
 
 test("returns safe fallback for corrupted localStorage payload", () => {
@@ -169,6 +171,118 @@ test("returns safe fallback for corrupted localStorage payload", () => {
   storage.setItem(TRAINER_MISTAKES_STORAGE_KEY, "{broken");
   assert.deepEqual(loadTrainerRecentHistory(storage), []);
   assert.deepEqual(loadTrainerMistakesHistory(storage), []);
+});
+
+test("updates unresolved mistake retry count for repeated incorrect attempts", () => {
+  const storage = new MemoryStorage();
+
+  const first = addTrainerMistakeHistory(
+    {
+      canonicalKey: "retry-key",
+      hand: "KQo",
+      selectedAction: "FOLD",
+      correctAction: "SHOVE",
+      isCorrect: false,
+      frequency: 0.4,
+      ev: null,
+      evLabel: "제공되지 않음",
+      source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+      spotSummary: summary
+    },
+    storage,
+    new Date("2026-06-01T02:00:00.000Z")
+  );
+
+  const second = addTrainerMistakeHistory(
+    {
+      canonicalKey: "retry-key",
+      hand: "KQo",
+      selectedAction: "FOLD",
+      correctAction: "SHOVE",
+      isCorrect: false,
+      frequency: 0.4,
+      ev: null,
+      evLabel: "제공되지 않음",
+      source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+      spotSummary: summary
+    },
+    storage,
+    new Date("2026-06-01T02:01:00.000Z")
+  );
+
+  assert.equal(second.length, 1);
+  assert.equal(second[0]?.id, first[0]?.id);
+  assert.equal(second[0]?.status, "unresolved");
+  assert.equal(second[0]?.retryCount, 1);
+  assert.equal(second[0]?.latestAttemptId !== second[0]?.firstAttemptId, true);
+});
+
+test("marks a matching correct retry as resolved", () => {
+  const storage = new MemoryStorage();
+
+  addTrainerMistakeHistory(
+    {
+      canonicalKey: "resolve-key",
+      hand: "AJo",
+      selectedAction: "FOLD",
+      correctAction: "SHOVE",
+      isCorrect: false,
+      frequency: 0.5,
+      ev: null,
+      evLabel: "제공되지 않음",
+      source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+      spotSummary: summary
+    },
+    storage,
+    new Date("2026-06-01T03:00:00.000Z")
+  );
+
+  const resolved = addTrainerMistakeHistory(
+    {
+      canonicalKey: "resolve-key",
+      hand: "AJo",
+      selectedAction: "SHOVE",
+      correctAction: "SHOVE",
+      isCorrect: true,
+      frequency: 0.5,
+      ev: 0.01,
+      evLabel: "0.01",
+      source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+      spotSummary: summary
+    },
+    storage,
+    new Date("2026-06-01T03:02:00.000Z")
+  );
+
+  assert.equal(resolved.length, 1);
+  assert.equal(resolved[0]?.status, "resolved");
+  assert.equal(resolved[0]?.retryCount, 1);
+  assert.equal(resolved[0]?.lastReviewedAt, "2026-06-01T03:02:00.000Z");
+});
+
+test("marks a local mistake as dismissed without clearing the queue", () => {
+  const storage = new MemoryStorage();
+  const mistakes = addTrainerMistakeHistory(
+    {
+      canonicalKey: "dismiss-key",
+      hand: "QJo",
+      selectedAction: "FOLD",
+      correctAction: "SHOVE",
+      isCorrect: false,
+      frequency: 0.42,
+      ev: null,
+      evLabel: "제공되지 않음",
+      source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+      spotSummary: summary
+    },
+    storage,
+    new Date("2026-06-01T04:00:00.000Z")
+  );
+
+  const dismissed = dismissTrainerMistakeHistory(mistakes[0]!.id, storage, new Date("2026-06-01T04:03:00.000Z"));
+  assert.equal(dismissed.length, 1);
+  assert.equal(dismissed[0]?.status, "dismissed");
+  assert.equal(dismissed[0]?.lastReviewedAt, "2026-06-01T04:03:00.000Z");
 });
 
 test("clear functions reset both histories", () => {
