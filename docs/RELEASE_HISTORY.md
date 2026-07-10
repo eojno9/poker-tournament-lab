@@ -9,39 +9,28 @@ This repository is a sanitized public source snapshot of a previously private pr
 history may not reflect the full private development timeline. Detailed planning and verification
 documents are included so reviewers can audit the safety boundaries and release decisions.
 
-## Current Public Release
+## Current Public Tag
 
-### v3.5
+### v3.6
 
-`v3.5` is the current public Git tag.
+`v3.6` is the current public Git tag.
 
-The v3.5 public release records Korean-first Trainer UX improvements for off-table study,
-local-only mistake review, retry/resolved/dismissed flow, local summary statistics, and
-continued public safety boundaries.
-
-Public status:
-
-- public `main`: `ce1bda3ad175e6a39ff0f7b8cc084b065421f3f5`
-- public `v3.5` tag object: `b858a292a519bc097c3badeb222c0ec64ef478bc`
-- public `v3.5` peeled target: `ce1bda3ad175e6a39ff0f7b8cc084b065421f3f5`
-- GitHub Actions run `29009743246`: success
-- typecheck, test, build, and Playwright smoke: PASS
-- bundled data artifacts: none
-
-Node 20 deprecation annotations from GitHub-hosted actions are a non-blocking note. The workflow
-uses Node 24 and completed successfully.
+v3.6 records Korean Trainer UX polish for off-table study. It keeps the v3.5 local-only
+mistake review flow and improves session status, mistake review states, local statistics,
+and localStorage fallback behavior. It does not add live assistance, production DB writes,
+product import routes, or bundled data artifacts to the public repository.
 
 Start with:
 
-- `docs/v3.5-plan.md`
-- `docs/v3.5-public-upload-preparation.md`
-- `docs/v3.5-public-github-final-verification.md`
+- `docs/v3.6-plan.md`
+- `docs/v3.6-closeout.md`
+- `docs/v3.6-release-tag-planning.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes versioned documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, and v3.6 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
-dry-run package script verification, and Trainer UX planning.
+dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
 
 They should not be read as public release tags unless a matching Git tag exists.
 
@@ -93,7 +82,7 @@ v3.4 documents focus on the dry-run-only copied DB rehearsal package script, pos
 dependency maintenance, BOM cleanup, artifact hygiene, final release-readiness cleanup, and release/tag planning.
 
 The current v3.4 documents mark `v3.4` as a local tag candidate only. A matching tag is not implied unless it exists in Git.
-A separately reviewed public-safe workflow is required for GitHub publication; the original repository stays remote-free and outside the publication source.
+GitHub upload must use a separately reviewed public-safe workflow; the original repository should not receive a remote or be pushed directly.
 
 Start with:
 
@@ -103,20 +92,21 @@ Start with:
 - `docs/v3.4-release-tag-planning.md`
 - `docs/v3.4-github-upload-preflight.md`
 
-### v3.5 Release Documents
+### v3.5 Release
 
 v3.5 focuses on Trainer UX improvements for off-table study,
 mistake review, position and filter-based sessions, local accuracy summaries, and
 local-only practice history structure. The Trainer session model design is now documented
-as a planning artifact, and the mistake review/statistics design is documented for a future
-implementation step. A minimal Trainer UX implementation plan is also documented before
-the first code changes. The minimal Korean-first Trainer UX flow is now implemented with
+as a planning artifact, and the mistake review/statistics design is documented. A minimal
+Trainer UX implementation plan is also documented before the first code changes.
+The minimal Korean-first Trainer UX flow is now implemented with
 local-only recent attempts, mistake review, retry/dismiss handling, and local summary
 statistics. v3.5 closeout verification, release/tag planning, local annotated tag creation,
-and local public upload folder verification are complete.
+GitHub upload preflight, public upload, status hotfix, and final public verification are complete.
 
-The public upload folder has been updated from the local `v3.5` tag snapshot and verified
-locally with typecheck, tests, build, and smoke. GitHub main upload and public tag push are complete.
+The local `v3.5` tag points to `eaaaa3413a313fa0d2476d446b065958a1b52529`. Public upload
+used a separately prepared sanitized upload folder rather than the original repository history.
+The v3.5 public release final verdict is `V3_5_PUBLIC_RELEASE_COMPLETE`.
 
 Start with:
 
@@ -124,8 +114,49 @@ Start with:
 - `docs/v3.5-trainer-session-model.md`
 - `docs/v3.5-mistake-review-statistics.md`
 - `docs/v3.5-minimal-trainer-ux-implementation-plan.md`
-- `docs/v3.5-public-upload-preparation.md`
-- `docs/v3.5-public-github-final-verification.md`
+- `docs/v3.5-github-upload-preflight.md`
+
+### v3.6 Release
+
+v3.6 focuses on the next Trainer improvement bundle after v3.5:
+Trainer UX polish, mistake review UX improvements, session-level study mode,
+position/action statistics, localStorage migration/fallback cleanup, Korean-first
+copy audit, and v4.0 public readiness planning.
+
+The design stage did not add implementation, dependency changes, DB/raw data access,
+generated artifacts, GitHub push, or tag changes. The implementation and public release
+steps keep those boundaries while updating the local-only Trainer UX.
+
+Start with:
+
+- `docs/v3.6-plan.md`
+- `docs/v3.6-trainer-ux-polish-design.md`
+- `docs/v3.6-mistake-review-ux-design.md`
+- `docs/v3.6-design-bundle.md`
+
+The v3.6 implementation bundle then applies the approved local-only Trainer
+improvements:
+
+- Korean-first Trainer guidance, filter structure, question card, feedback, and empty states
+- local session progress card and reset affordance
+- clearer mistake review status counts and local-only copy
+- compact local summary, recent-window accuracy, position/action stat headings, and session counts
+- safer Trainer localStorage fallback for corrupt or unavailable browser storage
+
+No package dependency changes, server persistence, API expansion, bundled data artifacts,
+GitHub push, or tag changes are part of this implementation bundle.
+
+The v3.6 closeout and release/tag planning step verifies the implementation bundle
+and records the candidate release plan:
+
+- closeout verdict: `V3_6_CLOSEOUT_READY`
+- release planning verdict: `V3_6_RELEASE_TAG_PLANNING_READY`
+- candidate tag: `v3.6`
+- candidate title: `v3.6 - Korean Trainer UX polish`
+- verification: typecheck PASS, test PASS, build PASS, smoke PASS
+- test count: core 383, server 82, web 110; smoke 7/7
+- public release tag: `v3.6`
+- public release title: `v3.6 - Korean Trainer UX polish`
 
 ## Verification
 

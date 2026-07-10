@@ -1837,6 +1837,9 @@ function TrainerView() {
   const [grade, setGrade] = useState<TrainerGradeResult | null>(null);
   const [trainerRecent, setTrainerRecent] = useState<TrainerHistoryEntry[]>(() => loadTrainerRecentHistory());
   const [trainerMistakes, setTrainerMistakes] = useState<TrainerHistoryEntry[]>(() => loadTrainerMistakesHistory());
+  const [sessionStartedAt, setSessionStartedAt] = useState(() => new Date().toISOString());
+  const [sessionAttempts, setSessionAttempts] = useState(0);
+  const [sessionCorrectCount, setSessionCorrectCount] = useState(0);
 
   const trainerSourceSolutions = useMemo(() => buildTrainerSourceSolutions(solutions), [solutions]);
   const trainerCandidates = useMemo(() => filterTrainerSolutions(trainerSourceSolutions, filters), [trainerSourceSolutions, filters]);
@@ -1958,6 +1961,8 @@ function TrainerView() {
 
     setTrainerRecent(addTrainerRecentHistory(historyInput));
     setTrainerMistakes(addTrainerMistakeHistory(historyInput));
+    setSessionAttempts((previous) => previous + 1);
+    setSessionCorrectCount((previous) => previous + (graded.isCorrect ? 1 : 0));
   }
 
   function onNextProblem() {
@@ -1975,6 +1980,14 @@ function TrainerView() {
   function onClearTrainerMistakes() {
     clearTrainerMistakesHistory();
     setTrainerMistakes([]);
+  }
+
+  function onResetTrainerSession() {
+    setSessionStartedAt(new Date().toISOString());
+    setSessionAttempts(0);
+    setSessionCorrectCount(0);
+    setGrade(null);
+    setSelectedAction(null);
   }
 
   function onRetryTrainerMistake(entry: TrainerHistoryEntry) {
@@ -2014,6 +2027,12 @@ function TrainerView() {
     [trainerRecent, trainerMistakes]
   );
   const visibleTrainerMistakes = trainerMistakes.filter((entry) => !entry.status || entry.status === "unresolved");
+  const resolvedTrainerMistakes = trainerMistakes.filter((entry) => entry.status === "resolved");
+  const dismissedTrainerMistakes = trainerMistakes.filter((entry) => entry.status === "dismissed");
+  const recentTrainerPreview = trainerRecent.slice(0, 5);
+  const sessionIncorrectCount = sessionAttempts - sessionCorrectCount;
+  const sessionAccuracyPct = sessionAttempts > 0 ? Number(((sessionCorrectCount / sessionAttempts) * 100).toFixed(2)) : null;
+  const sessionProblemIndex = trainerCandidates.length > 0 ? ((cursor % trainerCandidates.length) + trainerCandidates.length) % trainerCandidates.length + 1 : 0;
 
   return (
     <section className="workspace-grid">
@@ -2026,14 +2045,17 @@ function TrainerView() {
           </button>
         </div>
 
-        <div className="notice">
-          <p>이 Trainer는 오프테이블 학습 전용입니다.</p>
+        <div className="notice trainer-hero-note">
+          <p>오프테이블 학습 전용 Trainer입니다.</p>
           <p>실시간 플레이 보조, 화면 캡처, OCR, 오버레이, 핫키, 포커 클라이언트 연동 기능은 제공하지 않습니다.</p>
-          <p>학습 기록은 이 브라우저의 로컬 저장소에만 저장됩니다.</p>
+          <p>최근 기록과 오답 복습은 이 브라우저의 로컬 저장소에만 저장됩니다.</p>
         </div>
 
         <div className="editor-block" data-testid="trainer-filter-controls">
-          <h3>학습 문제 선택</h3>
+          <div className="panel-title">
+            <h3>학습 문제 설정</h3>
+            <span className="status-pill">로컬 세션</span>
+          </div>
           <div className="form-grid">
             <label>
               포지션
@@ -2102,10 +2124,32 @@ function TrainerView() {
               <RefreshCw size={14} />
               필터 초기화
             </button>
+            <button className="preset-action" onClick={onResetTrainerSession} type="button" data-testid="trainer-session-reset-button">
+              <RefreshCw size={14} />
+              세션 다시 시작
+            </button>
           </div>
-          <p className="muted" data-testid="trainer-filter-summary">필터: {filterSummary.length > 0 ? filterSummary : "전체"}</p>
+          <div className="trainer-local-session" data-testid="trainer-session-card">
+            <div>
+              <span>현재 문제</span>
+              <strong>{sessionProblemIndex > 0 ? `${sessionProblemIndex} / ${trainerCandidates.length}` : "대기 중"}</strong>
+            </div>
+            <div>
+              <span>세션 시도</span>
+              <strong>{sessionAttempts}</strong>
+            </div>
+            <div>
+              <span>세션 정답률</span>
+              <strong>{formatSummaryPct(sessionAccuracyPct)}</strong>
+            </div>
+            <div>
+              <span>시작</span>
+              <strong>{new Date(sessionStartedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</strong>
+            </div>
+          </div>
+          <p className="muted" data-testid="trainer-filter-summary">필터 요약: {filterSummary.length > 0 ? filterSummary : "전체 문제"}</p>
           <p className="muted" data-testid="trainer-candidate-count">
-            후보 문제 {trainerCandidates.length} / 전체 {trainerSourceSolutions.length}
+            후보 문제 {trainerCandidates.length}개 / 전체 {trainerSourceSolutions.length}개
           </p>
           <p className="muted">{handSummary}</p>
         </div>
@@ -2122,14 +2166,20 @@ function TrainerView() {
 
         {problem && (
           <div className="result-block" data-testid="trainer-problem-card">
-            <h3>문제 카드</h3>
+            <div className="trainer-card-heading">
+              <div>
+                <h3>문제 카드</h3>
+                <p className="muted">현재 로컬 세션의 오프테이블 학습 문제입니다.</p>
+              </div>
+              <span className="status-pill">{formatTrainerSourceLabel(problem.source)}</span>
+            </div>
             <div className="detail-grid">
               <ResultDetailItem label="포지션" value={problem.spotSummary.heroPosition} />
               <ResultDetailItem label="테이블 인원" value={String(problem.spotSummary.tableSize)} />
               <ResultDetailItem label="스택(BB)" value={formatBb(problem.spotSummary.heroStackBb)} />
               <ResultDetailItem label="트리 유형" value={problem.spotSummary.treeConfig ?? "제공되지 않음"} />
               <ResultDetailItem label="핸드" value={problem.hand} />
-              <ResultDetailItem label="데이터 범위" value={formatTrainerSourceLabel(problem.source)} />
+              <ResultDetailItem label="후보 순서" value={sessionProblemIndex > 0 ? `${sessionProblemIndex}/${trainerCandidates.length}` : "제공되지 않음"} />
             </div>
             <p className="muted">액션 경로: {problem.spotSummary.actionPath.join(", ")}</p>
             <code>{problem.canonicalKey.slice(0, 88)}...</code>
@@ -2169,14 +2219,35 @@ function TrainerView() {
           <h3>학습 요약</h3>
           <p className="muted">통계는 이 기기의 로컬 Trainer 기록만 기준으로 계산합니다.</p>
           {trainerSummary.totalAttempts === 0 ? (
-            <p className="muted">아직 학습 기록이 없습니다.</p>
+            <div className="notice">
+              <p>아직 학습 기록이 없습니다.</p>
+              <p>문제를 풀면 세션 요약, 정답률, 오답 복습 상태가 이곳에 표시됩니다.</p>
+            </div>
           ) : (
             <>
+              <div className="trainer-summary-strip">
+                <div data-testid="trainer-summary-total-attempts">
+                  <span>총 시도</span>
+                  <strong>{trainerSummary.totalAttempts}</strong>
+                </div>
+                <div data-testid="trainer-summary-accuracy">
+                  <span>전체 정답률</span>
+                  <strong>{formatSummaryPct(trainerSummary.accuracyPct)}</strong>
+                </div>
+                <div>
+                  <span>최근 10문제</span>
+                  <strong>{formatSummaryPct(trainerSummary.recentWindowAccuracyPct)}</strong>
+                </div>
+                <div>
+                  <span>미해결 오답</span>
+                  <strong>{trainerSummary.unresolvedMistakeCount}</strong>
+                </div>
+              </div>
               <div className="detail-grid">
-                <ResultDetailItem label="총 시도" value={String(trainerSummary.totalAttempts)} />
                 <ResultDetailItem label="정답" value={String(trainerSummary.correctCount)} />
                 <ResultDetailItem label="오답" value={String(trainerSummary.incorrectCount)} />
-                <ResultDetailItem label="정답률" value={formatSummaryPct(trainerSummary.accuracyPct)} />
+                <ResultDetailItem label="세션 정답" value={String(sessionCorrectCount)} />
+                <ResultDetailItem label="세션 오답" value={String(sessionIncorrectCount)} />
                 <ResultDetailItem
                   label="최근 10문제 정답률"
                   value={
@@ -2189,8 +2260,6 @@ function TrainerView() {
                 <ResultDetailItem label="해결된 오답" value={String(trainerSummary.resolvedMistakeCount)} />
                 <ResultDetailItem label="숨긴 오답" value={String(trainerSummary.dismissedMistakeCount)} />
               </div>
-              <p className="muted" data-testid="trainer-summary-total-attempts">totalAttempts: {trainerSummary.totalAttempts}</p>
-              <p className="muted" data-testid="trainer-summary-accuracy">accuracy: {formatSummaryPct(trainerSummary.accuracyPct)}</p>
 
               <div className="meta-list">
                 <p>
@@ -2226,10 +2295,10 @@ function TrainerView() {
                 </div>
               ) : null}
               {trainerSummary.byPosition.length > 0 ? (
-                <TrainerSummaryBucketTable title="포지션별 요약" rows={trainerSummary.byPosition} formatLabel={(label) => label} />
+                <TrainerSummaryBucketTable title="포지션별 로컬 통계" rows={trainerSummary.byPosition} formatLabel={(label) => label} />
               ) : null}
               {trainerSummary.byAction.length > 0 ? (
-                <TrainerSummaryBucketTable title="액션별 요약" rows={trainerSummary.byAction} formatLabel={formatTrainerActionLabel} />
+                <TrainerSummaryBucketTable title="액션별 로컬 통계" rows={trainerSummary.byAction} formatLabel={formatTrainerActionLabel} />
               ) : null}
             </>
           )}
@@ -2244,7 +2313,11 @@ function TrainerView() {
             <h3>채점 결과</h3>
             <div className={`notice ${grade.isCorrect ? "success" : ""}`}>
               <p>{grade.isCorrect ? "정답입니다." : "오답입니다."}</p>
-              {!grade.isCorrect ? <p>다시 풀어볼 수 있습니다.</p> : null}
+              <p>
+                {grade.isCorrect
+                  ? "이 시도는 로컬 세션 정답으로 기록됩니다."
+                  : "오답 복습에 저장했습니다. 오프테이블에서 다시 풀어볼 수 있습니다."}
+              </p>
             </div>
             <div className="detail-grid">
               <ResultDetailItem label="선택한 액션" value={formatTrainerActionLabel(grade.selectedAction)} />
@@ -2266,11 +2339,12 @@ function TrainerView() {
               전체 삭제
             </button>
           </div>
+          <p className="muted">최근 5개 제출만 간단히 표시합니다. 전체 기록은 이 기기의 로컬 저장소에만 남습니다.</p>
           {trainerRecent.length === 0 ? (
             <p className="muted">아직 제출한 기록이 없습니다.</p>
           ) : (
             <div className="recent-list" data-testid="trainer-recent-list">
-              {trainerRecent.map((entry) => (
+              {recentTrainerPreview.map((entry) => (
                 <div className="recent-row" key={entry.id} data-testid="trainer-recent-row">
                   <div className="recent-summary">
                     <strong>
@@ -2296,11 +2370,33 @@ function TrainerView() {
             <h3>오답 복습</h3>
             <button className="preset-action danger" type="button" onClick={onClearTrainerMistakes} data-testid="trainer-clear-mistakes-button">
               <Trash2 size={14} />
-              오답 기록 지우기
+              로컬 오답 기록 지우기
             </button>
           </div>
+          <div className="trainer-mistake-status-grid" data-testid="trainer-mistake-status-grid">
+            <div>
+              <span>미해결</span>
+              <strong>{visibleTrainerMistakes.length}</strong>
+            </div>
+            <div>
+              <span>해결됨</span>
+              <strong>{resolvedTrainerMistakes.length}</strong>
+            </div>
+            <div>
+              <span>숨김</span>
+              <strong>{dismissedTrainerMistakes.length}</strong>
+            </div>
+          </div>
+          <p className="muted">오답 복습은 이 기기의 로컬 기록만 사용합니다. 학습 데이터나 원본 설정은 변경하지 않습니다.</p>
           {visibleTrainerMistakes.length === 0 ? (
-            <p className="muted">아직 저장된 오답이 없습니다. 틀린 문제는 이 브라우저의 로컬 저장소에만 저장됩니다.</p>
+            <div className="notice" data-testid="trainer-mistakes-empty-state">
+              <p>{trainerMistakes.length === 0 ? "아직 저장된 오답이 없습니다." : "현재 미해결 오답이 없습니다."}</p>
+              <p>
+                {resolvedTrainerMistakes.length > 0
+                  ? "해결된 오답은 로컬 통계에 반영됩니다."
+                  : "틀린 문제는 이 브라우저의 로컬 저장소에만 저장됩니다."}
+              </p>
+            </div>
           ) : (
             <div className="recent-list" data-testid="trainer-mistakes-list">
               {visibleTrainerMistakes.map((entry) => (
@@ -2312,7 +2408,10 @@ function TrainerView() {
                     <span>{formatTrainerMistakeStatusLabel(entry.status)} · 재시도 {entry.retryCount ?? 0}회</span>
                     <span>{formatTrainerSourceLabel(entry.source)}</span>
                     <span>{entry.spotSummary.heroPosition} / {entry.spotSummary.tableSize}명</span>
-                    <span>{new Date(entry.createdAt).toLocaleString("ko-KR")}</span>
+                    <span>
+                      최초 오답 {new Date(entry.createdAt).toLocaleString("ko-KR")}
+                      {entry.lastReviewedAt ? ` · 최근 복습 ${new Date(entry.lastReviewedAt).toLocaleString("ko-KR")}` : ""}
+                    </span>
                   </div>
                   <div className="recent-actions">
                     <button className="preset-action" type="button" onClick={() => onRetryTrainerMistake(entry)} data-testid="trainer-retry-mistake-button">

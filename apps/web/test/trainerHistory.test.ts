@@ -26,6 +26,16 @@ class MemoryStorage implements StorageLike {
   }
 }
 
+class ThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    return "{broken";
+  }
+
+  setItem(): void {
+    throw new Error("localStorage_unavailable");
+  }
+}
+
 const summary: TrainerProblemSpotSummary = {
   heroPosition: "BTN",
   tableSize: 6,
@@ -169,6 +179,14 @@ test("returns safe fallback for corrupted localStorage payload", () => {
   const storage = new MemoryStorage();
   storage.setItem(TRAINER_RECENT_STORAGE_KEY, "{broken");
   storage.setItem(TRAINER_MISTAKES_STORAGE_KEY, "{broken");
+  assert.deepEqual(loadTrainerRecentHistory(storage), []);
+  assert.deepEqual(loadTrainerMistakesHistory(storage), []);
+  assert.equal(storage.getItem(TRAINER_RECENT_STORAGE_KEY), "[]");
+  assert.equal(storage.getItem(TRAINER_MISTAKES_STORAGE_KEY), "[]");
+});
+
+test("returns safe fallback when localStorage reset fails", () => {
+  const storage = new ThrowingStorage();
   assert.deepEqual(loadTrainerRecentHistory(storage), []);
   assert.deepEqual(loadTrainerMistakesHistory(storage), []);
 });

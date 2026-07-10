@@ -190,10 +190,12 @@ function loadHistory(key: string, maxCount: number, storage: StorageLike | null)
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) {
+      safeResetHistory(key, storage);
       return [];
     }
     return parsed.map(normalizeLoadedEntry).filter((entry): entry is TrainerHistoryEntry => entry !== null).slice(0, maxCount);
   } catch {
+    safeResetHistory(key, storage);
     return [];
   }
 }
@@ -284,7 +286,19 @@ function isSameMistakeSpot(left: TrainerHistoryEntry, right: TrainerHistoryEntry
 }
 
 function saveHistory(key: string, entries: TrainerHistoryEntry[], storage: StorageLike): void {
-  storage.setItem(key, JSON.stringify(entries));
+  try {
+    storage.setItem(key, JSON.stringify(entries));
+  } catch {
+    // Keep the Trainer usable when localStorage is full or unavailable.
+  }
+}
+
+function safeResetHistory(key: string, storage: StorageLike): void {
+  try {
+    storage.setItem(key, "[]");
+  } catch {
+    // Ignore reset failures; callers already receive the safe empty fallback.
+  }
 }
 
 function normalizeSpotSummary(value: unknown): TrainerProblemSpotSummary | null {

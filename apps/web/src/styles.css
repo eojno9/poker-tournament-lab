@@ -1360,6 +1360,70 @@ textarea.compact-textarea {
   gap: 8px;
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 24px;
+  border: 1px solid #d6dfeb;
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: #ffffff;
+  color: #40536a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.trainer-hero-note {
+  gap: 4px;
+}
+
+.trainer-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trainer-card-heading h3 {
+  margin: 0;
+}
+
+.trainer-local-session,
+.trainer-summary-strip,
+.trainer-mistake-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.trainer-local-session > div,
+.trainer-summary-strip > div,
+.trainer-mistake-status-grid > div {
+  display: grid;
+  gap: 4px;
+  min-height: 58px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.trainer-local-session span,
+.trainer-summary-strip span,
+.trainer-mistake-status-grid span {
+  color: #5f6f83;
+  font-size: 12px;
+}
+
+.trainer-local-session strong,
+.trainer-summary-strip strong,
+.trainer-mistake-status-grid strong {
+  color: #182536;
+  font-size: 16px;
+}
+
 .trainer-actions {
   display: flex;
   gap: 8px;
