@@ -11,24 +11,25 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v3.6
+### v3.7
 
-`v3.6` is the current public Git tag.
+`v3.7` is the current public Git tag.
 
-v3.6 records Korean Trainer UX polish for off-table study. It keeps the v3.5 local-only
-mistake review flow and improves session status, mistake review states, local statistics,
-and localStorage fallback behavior. It does not add live assistance, production DB writes,
-product import routes, or bundled data artifacts to the public repository.
+v3.7 records Trainer session and filter workflow improvements for off-table study. It
+keeps the v3.6 Korean-first Trainer UX and adds clearer session start/progress/completion
+flow, local filter save/restore/reset, mistake review state filtering, and localStorage
+fallback handling. It does not add live assistance, production DB writes, product import
+routes, or bundled data artifacts to the public repository.
 
 Start with:
 
-- `docs/v3.6-plan.md`
-- `docs/v3.6-closeout.md`
-- `docs/v3.6-release-tag-planning.md`
+- `docs/v3.7-plan.md`
+- `docs/v3.7-closeout.md`
+- `docs/v3.7-release-tag-planning.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, and v3.6 documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, and v3.7 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
 dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
 
@@ -158,7 +159,7 @@ and records the candidate release plan:
 - public release tag: `v3.6`
 - public release title: `v3.6 - Korean Trainer UX polish`
 
-### v3.7 Release Planning
+### v3.7 Release
 
 v3.7 targets final Trainer completion and v4.0 readiness work before a later
 v4.0 review. The scope remains local-only and Korean-first:
@@ -185,13 +186,15 @@ Current implementation verification:
 - build: PASS
 - smoke: PASS, 7/7
 
-Closeout and release/tag planning are ready:
+Closeout, release/tag planning, public upload, and public tag publication are complete:
 
 - candidate tag: `v3.7`
 - candidate title: `v3.7 - Trainer session and filter workflows`
 - closeout verdict: `V3_7_CLOSEOUT_READY`
 - release planning verdict: `V3_7_RELEASE_TAG_PLANNING_READY`
-- local tag creation, GitHub push, and tag push are not performed in the planning step
+- public release tag: `v3.7`
+- public release title: `v3.7 - Trainer session and filter workflows`
+- public release verdict: `V3_7_PUBLIC_RELEASE_COMPLETE`
 
 Start with:
 
