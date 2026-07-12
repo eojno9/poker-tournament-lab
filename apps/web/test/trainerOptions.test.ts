@@ -2,14 +2,41 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SolutionListItem } from "../src/api.js";
 import {
+  TRAINER_FILTERS_STORAGE_KEY,
   buildTrainerSourceSolutions,
+  clearTrainerFilterSettings,
   defaultTrainerProblemFilters,
   deriveTrainerTreeConfig,
   filterTrainerSolutions,
+  loadTrainerFilterSettings,
   normalizeTrainerHandInput,
   parseTrainerSeedInput,
-  resolveTrainerSolutionIndex
+  resolveTrainerSolutionIndex,
+  saveTrainerFilterSettings
 } from "../src/trainerOptions.js";
+import type { StorageLike } from "../src/trainerHistory.js";
+
+class MemoryStorage implements StorageLike {
+  private readonly map = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.map.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.map.set(key, value);
+  }
+}
+
+class ThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    return "{broken";
+  }
+
+  setItem(): void {
+    throw new Error("localStorage_unavailable");
+  }
+}
 
 function makeSolution(
   id: number,
@@ -125,4 +152,104 @@ test("resolveTrainerSolutionIndex is deterministic with and without seed", () =>
   const next = resolveTrainerSolutionIndex(1, 7, "seed-x");
   assert.equal(first, second);
   assert.equal(next, (first + 1) % 7);
+});
+
+test("saves and loads versioned local trainer filter settings", () => {
+  const storage = new MemoryStorage();
+  const saved = saveTrainerFilterSettings(
+    {
+      filters: {
+        heroPosition: "BTN",
+        tableSize: "6",
+        treeConfig: "RFI",
+        sourceFile: "local-pack"
+      },
+      handInput: "AKo",
+      seedInput: "seed-1"
+    },
+    storage
+  );
+
+  assert.equal(saved, true);
+  assert.deepEqual(loadTrainerFilterSettings(storage), {
+    filters: {
+      heroPosition: "BTN",
+      tableSize: "6",
+      treeConfig: "RFI",
+      sourceFile: "local-pack"
+    },
+    handInput: "AKo",
+    seedInput: "seed-1"
+  });
+});
+
+test("loads partial trainer filter settings with safe defaults", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    TRAINER_FILTERS_STORAGE_KEY,
+    JSON.stringify({
+      version: 1,
+      filters: {
+        heroPosition: "CO",
+        tableSize: 6
+      },
+      handInput: "KQs",
+      seedInput: 7
+    })
+  );
+
+  assert.deepEqual(loadTrainerFilterSettings(storage), {
+    filters: {
+      heroPosition: "CO",
+      tableSize: "",
+      treeConfig: "",
+      sourceFile: ""
+    },
+    handInput: "KQs",
+    seedInput: ""
+  });
+});
+
+test("returns default trainer filter settings for corrupt or unknown payloads", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(TRAINER_FILTERS_STORAGE_KEY, "{broken");
+  assert.deepEqual(loadTrainerFilterSettings(storage), {
+    filters: defaultTrainerProblemFilters,
+    handInput: "",
+    seedInput: ""
+  });
+
+  storage.setItem(TRAINER_FILTERS_STORAGE_KEY, JSON.stringify({ version: 99, filters: { heroPosition: "BTN" } }));
+  assert.deepEqual(loadTrainerFilterSettings(storage), {
+    filters: defaultTrainerProblemFilters,
+    handInput: "",
+    seedInput: ""
+  });
+});
+
+test("filter clear and write failures keep trainer filters safe", () => {
+  const storage = new MemoryStorage();
+  saveTrainerFilterSettings(
+    {
+      filters: { ...defaultTrainerProblemFilters, heroPosition: "BTN" },
+      handInput: "AKo",
+      seedInput: "1"
+    },
+    storage
+  );
+
+  assert.equal(clearTrainerFilterSettings(storage), true);
+  assert.deepEqual(loadTrainerFilterSettings(storage), {
+    filters: defaultTrainerProblemFilters,
+    handInput: "",
+    seedInput: ""
+  });
+
+  const throwingStorage = new ThrowingStorage();
+  assert.equal(saveTrainerFilterSettings({ filters: defaultTrainerProblemFilters, handInput: "", seedInput: "" }, throwingStorage), false);
+  assert.deepEqual(loadTrainerFilterSettings(throwingStorage), {
+    filters: defaultTrainerProblemFilters,
+    handInput: "",
+    seedInput: ""
+  });
 });

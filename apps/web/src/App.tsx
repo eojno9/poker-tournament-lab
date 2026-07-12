@@ -116,12 +116,15 @@ import {
 } from "./trainerHistory.js";
 import {
   buildTrainerSourceSolutions,
-  defaultTrainerProblemFilters,
+  clearTrainerFilterSettings,
+  defaultTrainerFilterSettings,
   deriveTrainerTreeConfig,
   filterTrainerSolutions,
+  loadTrainerFilterSettings,
   normalizeTrainerHandInput,
   parseTrainerSeedInput,
   resolveTrainerSolutionIndex,
+  saveTrainerFilterSettings,
   type TrainerProblemFilters
 } from "./trainerOptions.js";
 import { buildTrainerSummary, type TrainerSummaryBucket } from "./trainerSummary.js";
@@ -148,6 +151,8 @@ import {
 type Tab = "analyze" | "browser" | "import" | "database" | "trainer" | "hrcArtifacts";
 type AnalyzeMode = "form" | "json";
 type PresetNoticeTone = "success" | "error";
+type TrainerSessionStatus = "not_started" | "in_progress" | "completed";
+type TrainerMistakeFilterMode = "all" | "unresolved" | "resolved" | "dismissed";
 
 interface PresetNotice {
   tone: PresetNoticeTone;
@@ -1827,9 +1832,10 @@ function TrainerView() {
   const [solutions, setSolutions] = useState<SolutionListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<TrainerProblemFilters>(defaultTrainerProblemFilters);
-  const [handInput, setHandInput] = useState("");
-  const [seedInput, setSeedInput] = useState("");
+  const [initialTrainerFilterSettings] = useState(() => loadTrainerFilterSettings());
+  const [filters, setFilters] = useState<TrainerProblemFilters>(initialTrainerFilterSettings.filters);
+  const [handInput, setHandInput] = useState(initialTrainerFilterSettings.handInput);
+  const [seedInput, setSeedInput] = useState(initialTrainerFilterSettings.seedInput);
   const [problem, setProblem] = useState<TrainerProblem | null>(null);
   const [problemError, setProblemError] = useState<string | null>(null);
   const [cursor, setCursor] = useState(0);
@@ -1840,6 +1846,8 @@ function TrainerView() {
   const [sessionStartedAt, setSessionStartedAt] = useState(() => new Date().toISOString());
   const [sessionAttempts, setSessionAttempts] = useState(0);
   const [sessionCorrectCount, setSessionCorrectCount] = useState(0);
+  const [filterStorageNotice, setFilterStorageNotice] = useState("저장된 필터는 이 브라우저에만 보관됩니다.");
+  const [mistakeFilterMode, setMistakeFilterMode] = useState<TrainerMistakeFilterMode>("unresolved");
 
   const trainerSourceSolutions = useMemo(() => buildTrainerSourceSolutions(solutions), [solutions]);
   const trainerCandidates = useMemo(() => filterTrainerSolutions(trainerSourceSolutions, filters), [trainerSourceSolutions, filters]);
@@ -2008,9 +2016,30 @@ function TrainerView() {
     setTrainerMistakes(dismissTrainerMistakeHistory(id));
   }
 
-  function resetTrainerFilters() {
-    setFilters(defaultTrainerProblemFilters);
+  function applyTrainerFilterSettings(nextSettings = defaultTrainerFilterSettings) {
+    setFilters(nextSettings.filters);
+    setHandInput(nextSettings.handInput);
+    setSeedInput(nextSettings.seedInput);
     setCursor(0);
+    setGrade(null);
+    setSelectedAction(null);
+  }
+
+  function onSaveTrainerFilters() {
+    const saved = saveTrainerFilterSettings({ filters, handInput, seedInput });
+    setFilterStorageNotice(saved ? "현재 필터를 이 브라우저에 저장했습니다." : "필터 저장에 실패했지만 현재 세션은 계속 사용할 수 있습니다.");
+  }
+
+  function onLoadTrainerFilters() {
+    const saved = loadTrainerFilterSettings();
+    applyTrainerFilterSettings(saved);
+    setFilterStorageNotice("저장된 필터를 안전하게 불러왔습니다.");
+  }
+
+  function resetTrainerFilters() {
+    clearTrainerFilterSettings();
+    applyTrainerFilterSettings(defaultTrainerFilterSettings);
+    setFilterStorageNotice("필터를 기본값으로 초기화했습니다. 전체 기록은 유지됩니다.");
   }
 
   const filterSummary = [
@@ -2029,10 +2058,27 @@ function TrainerView() {
   const visibleTrainerMistakes = trainerMistakes.filter((entry) => !entry.status || entry.status === "unresolved");
   const resolvedTrainerMistakes = trainerMistakes.filter((entry) => entry.status === "resolved");
   const dismissedTrainerMistakes = trainerMistakes.filter((entry) => entry.status === "dismissed");
+  const mistakeFilterCounts: Record<TrainerMistakeFilterMode, number> = {
+    all: trainerMistakes.length,
+    unresolved: visibleTrainerMistakes.length,
+    resolved: resolvedTrainerMistakes.length,
+    dismissed: dismissedTrainerMistakes.length
+  };
+  const displayedTrainerMistakes = trainerMistakes.filter((entry) => {
+    if (mistakeFilterMode === "all") {
+      return true;
+    }
+    const status = entry.status ?? "unresolved";
+    return status === mistakeFilterMode;
+  });
   const recentTrainerPreview = trainerRecent.slice(0, 5);
   const sessionIncorrectCount = sessionAttempts - sessionCorrectCount;
   const sessionAccuracyPct = sessionAttempts > 0 ? Number(((sessionCorrectCount / sessionAttempts) * 100).toFixed(2)) : null;
   const sessionProblemIndex = trainerCandidates.length > 0 ? ((cursor % trainerCandidates.length) + trainerCandidates.length) % trainerCandidates.length + 1 : 0;
+  const sessionStatus: TrainerSessionStatus =
+    sessionAttempts === 0 ? "not_started" : trainerCandidates.length > 0 && sessionAttempts >= trainerCandidates.length ? "completed" : "in_progress";
+  const sessionStatusLabel = formatTrainerSessionStatusLabel(sessionStatus);
+  const sessionStatusHelp = formatTrainerSessionStatusHelp(sessionStatus);
 
   return (
     <section className="workspace-grid">
@@ -2120,6 +2166,14 @@ function TrainerView() {
             </label>
           </div>
           <div className="search-line">
+            <button className="preset-action" onClick={onSaveTrainerFilters} type="button" data-testid="trainer-filter-save-button">
+              <BookmarkPlus size={14} />
+              필터 저장
+            </button>
+            <button className="preset-action" onClick={onLoadTrainerFilters} type="button" data-testid="trainer-filter-load-button">
+              <Download size={14} />
+              저장된 필터 불러오기
+            </button>
             <button className="preset-action" onClick={resetTrainerFilters} type="button" data-testid="trainer-filter-reset-button">
               <RefreshCw size={14} />
               필터 초기화
@@ -2129,7 +2183,12 @@ function TrainerView() {
               세션 다시 시작
             </button>
           </div>
+          <p className="muted" data-testid="trainer-filter-storage-notice">{filterStorageNotice}</p>
           <div className="trainer-local-session" data-testid="trainer-session-card">
+            <div data-testid="trainer-session-status">
+              <span>세션 상태</span>
+              <strong>{sessionStatusLabel}</strong>
+            </div>
             <div>
               <span>현재 문제</span>
               <strong>{sessionProblemIndex > 0 ? `${sessionProblemIndex} / ${trainerCandidates.length}` : "대기 중"}</strong>
@@ -2147,6 +2206,7 @@ function TrainerView() {
               <strong>{new Date(sessionStartedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}</strong>
             </div>
           </div>
+          <p className="muted" data-testid="trainer-session-help">{sessionStatusHelp}</p>
           <p className="muted" data-testid="trainer-filter-summary">필터 요약: {filterSummary.length > 0 ? filterSummary : "전체 문제"}</p>
           <p className="muted" data-testid="trainer-candidate-count">
             후보 문제 {trainerCandidates.length}개 / 전체 {trainerSourceSolutions.length}개
@@ -2260,6 +2320,14 @@ function TrainerView() {
                 <ResultDetailItem label="해결된 오답" value={String(trainerSummary.resolvedMistakeCount)} />
                 <ResultDetailItem label="숨긴 오답" value={String(trainerSummary.dismissedMistakeCount)} />
               </div>
+              {sessionStatus === "completed" ? (
+                <div className="notice success" data-testid="trainer-session-complete-summary">
+                  <p>세션 완료: 이번 세션 {sessionAttempts}문제를 풀었습니다.</p>
+                  <p>
+                    이번 세션 정답 {sessionCorrectCount}개 / 오답 {sessionIncorrectCount}개 · 정답률 {formatSummaryPct(sessionAccuracyPct)}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="meta-list">
                 <p>
@@ -2387,10 +2455,23 @@ function TrainerView() {
               <strong>{dismissedTrainerMistakes.length}</strong>
             </div>
           </div>
+          <div className="trainer-filter-tabs" role="group" aria-label="오답 복습 상태 필터" data-testid="trainer-mistake-filter-tabs">
+            {(["all", "unresolved", "resolved", "dismissed"] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`preset-action ${mistakeFilterMode === mode ? "active" : ""}`}
+                type="button"
+                onClick={() => setMistakeFilterMode(mode)}
+                data-testid={`trainer-mistake-filter-${mode}`}
+              >
+                {formatTrainerMistakeFilterLabel(mode)} {mistakeFilterCounts[mode]}
+              </button>
+            ))}
+          </div>
           <p className="muted">오답 복습은 이 기기의 로컬 기록만 사용합니다. 학습 데이터나 원본 설정은 변경하지 않습니다.</p>
-          {visibleTrainerMistakes.length === 0 ? (
+          {displayedTrainerMistakes.length === 0 ? (
             <div className="notice" data-testid="trainer-mistakes-empty-state">
-              <p>{trainerMistakes.length === 0 ? "아직 저장된 오답이 없습니다." : "현재 미해결 오답이 없습니다."}</p>
+              <p>{formatTrainerMistakeEmptyState(mistakeFilterMode, trainerMistakes.length)}</p>
               <p>
                 {resolvedTrainerMistakes.length > 0
                   ? "해결된 오답은 로컬 통계에 반영됩니다."
@@ -2399,7 +2480,7 @@ function TrainerView() {
             </div>
           ) : (
             <div className="recent-list" data-testid="trainer-mistakes-list">
-              {visibleTrainerMistakes.map((entry) => (
+              {displayedTrainerMistakes.map((entry) => (
                 <div className="recent-row" key={entry.id} data-testid="trainer-mistake-row">
                   <div className="recent-summary">
                     <strong>
@@ -2497,6 +2578,49 @@ function formatTrainerMistakeStatusLabel(status: TrainerMistakeStatus | undefine
     return "숨김";
   }
   return "미해결";
+}
+
+function formatTrainerMistakeFilterLabel(mode: TrainerMistakeFilterMode): string {
+  if (mode === "all") {
+    return "전체";
+  }
+  if (mode === "resolved") {
+    return "해결됨";
+  }
+  if (mode === "dismissed") {
+    return "숨김";
+  }
+  return "미해결";
+}
+
+function formatTrainerMistakeEmptyState(mode: TrainerMistakeFilterMode, totalCount: number): string {
+  if (totalCount === 0) {
+    return "아직 저장된 오답이 없습니다.";
+  }
+  if (mode === "all") {
+    return "현재 표시할 오답 기록이 없습니다.";
+  }
+  return `${formatTrainerMistakeFilterLabel(mode)} 상태의 오답이 없습니다.`;
+}
+
+function formatTrainerSessionStatusLabel(status: TrainerSessionStatus): string {
+  if (status === "completed") {
+    return "세션 완료";
+  }
+  if (status === "in_progress") {
+    return "진행 중";
+  }
+  return "시작 전";
+}
+
+function formatTrainerSessionStatusHelp(status: TrainerSessionStatus): string {
+  if (status === "completed") {
+    return "이번 세션 목표 수만큼 풀었습니다. 새 세션을 시작해도 전체 로컬 기록은 유지됩니다.";
+  }
+  if (status === "in_progress") {
+    return "세션이 진행 중입니다. 결과는 이 브라우저의 로컬 기록에만 저장됩니다.";
+  }
+  return "첫 답안을 선택하면 세션이 시작됩니다. 필터를 저장해도 서버에는 저장하지 않습니다.";
 }
 
 function AnalyzePlayerRow({

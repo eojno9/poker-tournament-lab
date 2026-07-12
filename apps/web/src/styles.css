@@ -1430,6 +1430,18 @@ textarea.compact-textarea {
   flex-wrap: wrap;
 }
 
+.trainer-filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trainer-filter-tabs .preset-action.active {
+  border-color: #1f7a5a;
+  background: #e8f6ef;
+  color: #15563f;
+}
+
 .trainer-actions .primary-action {
   min-width: 120px;
 }

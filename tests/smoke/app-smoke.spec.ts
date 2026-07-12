@@ -905,9 +905,16 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("trainer-filter-source-file")).toBeVisible();
     await expect(page.getByTestId("trainer-hand-input")).toBeVisible();
     await expect(page.getByTestId("trainer-seed-input")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-save-button")).toBeVisible();
+    await expect(page.getByTestId("trainer-filter-load-button")).toBeVisible();
     await expect(page.getByTestId("trainer-filter-reset-button")).toBeVisible();
     await expect(page.getByTestId("trainer-session-reset-button")).toBeVisible();
+    await page.getByTestId("trainer-filter-save-button").click();
+    await expect(page.getByTestId("trainer-filter-storage-notice")).toContainText("현재 필터를 이 브라우저에 저장했습니다.");
+    await page.getByTestId("trainer-filter-load-button").click();
+    await expect(page.getByTestId("trainer-filter-storage-notice")).toContainText("저장된 필터를 안전하게 불러왔습니다.");
     await expect(page.getByTestId("trainer-session-card")).toBeVisible();
+    await expect(page.getByTestId("trainer-session-status")).toContainText("시작 전");
     await expect(page.getByTestId("trainer-session-card")).toContainText("세션 시도");
     await expect(page.getByTestId("trainer-candidate-count")).toContainText("후보 문제");
     await expect(page.getByTestId("trainer-summary-card")).toBeVisible();
@@ -933,12 +940,22 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("trainer-summary-total-attempts")).toContainText("1");
     await expect(page.getByTestId("trainer-summary-accuracy")).toContainText("%");
     await expect(page.getByTestId("trainer-session-card")).toContainText("세션 정답률");
+    await expect(page.getByTestId("trainer-session-status")).toContainText("세션 완료");
+    await expect(page.getByTestId("trainer-session-complete-summary")).toContainText("세션 완료");
+    await page.getByTestId("trainer-session-reset-button").click();
+    await expect(page.getByTestId("trainer-session-status")).toContainText("시작 전");
+    await expect(page.getByTestId("trainer-recent-row")).toHaveCount(1);
 
     await page.getByTestId("trainer-fold-button").click();
     await expect(page.getByTestId("trainer-mistakes-list")).toBeVisible();
     await expect(page.getByTestId("trainer-mistake-row").first()).toBeVisible();
     await expect(page.getByTestId("trainer-retry-mistake-button").first()).toContainText("다시 풀기");
     await expect(page.getByTestId("trainer-dismiss-mistake-button").first()).toContainText("숨기기");
+    await expect(page.getByTestId("trainer-mistake-filter-tabs")).toBeVisible();
+    await page.getByTestId("trainer-mistake-filter-resolved").click();
+    await expect(page.getByTestId("trainer-mistakes-empty-state")).toContainText("해결됨 상태의 오답이 없습니다.");
+    await page.getByTestId("trainer-mistake-filter-unresolved").click();
+    await expect(page.getByTestId("trainer-mistake-row").first()).toBeVisible();
   });
 
   test("renders source states and updates recent analyses", async ({ page }) => {

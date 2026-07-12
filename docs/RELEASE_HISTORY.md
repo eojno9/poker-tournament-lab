@@ -158,6 +158,48 @@ and records the candidate release plan:
 - public release tag: `v3.6`
 - public release title: `v3.6 - Korean Trainer UX polish`
 
+### v3.7 Release Planning
+
+v3.7 targets final Trainer completion and v4.0 readiness work before a later
+v4.0 review. The scope remains local-only and Korean-first:
+
+- Trainer session start/progress/completion/reset flow
+- local filter settings save/restore/reset
+- mistake review state filtering
+- local statistics range labels
+- versioned localStorage migration/fallback rules
+- Korean-first copy audit
+- accessibility and keyboard baseline checks
+- narrow/mobile Trainer layout baseline checks
+- concrete v4.0 readiness checklist
+
+The implementation bundle adds local session status/completion UI, versioned
+filter save/load/reset, mistake status filters, and fallback tests. It does not
+add dependency changes, DB/raw data access, generated artifacts, GitHub push, or
+tag changes.
+
+Current implementation verification:
+
+- typecheck: PASS
+- test: PASS, core 383 / server 82 / web 114
+- build: PASS
+- smoke: PASS, 7/7
+
+Closeout and release/tag planning are ready:
+
+- candidate tag: `v3.7`
+- candidate title: `v3.7 - Trainer session and filter workflows`
+- closeout verdict: `V3_7_CLOSEOUT_READY`
+- release planning verdict: `V3_7_RELEASE_TAG_PLANNING_READY`
+- local tag creation, GitHub push, and tag push are not performed in the planning step
+
+Start with:
+
+- `docs/v3.7-plan.md`
+- `docs/v3.7-design-bundle.md`
+- `docs/v3.7-closeout.md`
+- `docs/v3.7-release-tag-planning.md`
+
 ## Verification
 
 Use the root package scripts for current verification:

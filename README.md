@@ -10,10 +10,9 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current public Git tag: `v3.6`
-- Public `main` is the latest sanitized public source snapshot used for OSS review.
-- v3.6 adds Korean Trainer UX polish for off-table study: clearer session status, mistake review states, local statistics, and localStorage fallback behavior.
-- The `docs/v3.0-*` through `docs/v3.6-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- Current public Git tag: `v2.9`
+- Public `main` is a sanitized 4-commit source history used for OSS review.
+- The `docs/v3.0-*`, `docs/v3.1-*`, and `docs/v3.2-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
