@@ -10,7 +10,7 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current public Git tag: `v3.7`
+- Current public Git tag: `v3.8`
 - Public `main` is the latest sanitized public source snapshot used for OSS review.
 - The `docs/v3.0-*` through `docs/v3.8-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.

@@ -11,25 +11,27 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v3.7
+### v3.8
 
-`v3.7` is the current public Git tag.
+`v3.8` is the current public Git tag.
 
-v3.7 records Trainer session and filter workflows for off-table Korean-first study.
-It keeps the v3.6 local-only Trainer flow and improves session start/progress/
-completion/reset, filter save/restore/reset, mistake review state filters, and
-localStorage fallback behavior. It does not add live assistance, production DB
-writes, product import routes, or bundled data artifacts to the public repository.
+v3.8 records v4.0 readiness gap closure for off-table Korean-first Trainer study.
+It keeps the v3.7 local-only Trainer session and filter flow and hardens state
+transitions, storage fallback, accessibility, keyboard behavior, narrow layout,
+public status wording, and public-safe security guidance. It does not add live
+assistance, production DB writes, product import routes, or bundled data
+artifacts to the public repository.
 
 Start with:
 
-- `docs/v3.7-plan.md`
-- `docs/v3.7-closeout.md`
-- `docs/v3.7-release-tag-planning.md`
+- `docs/v3.8-plan.md`
+- `docs/v3.8-closeout.md`
+- `docs/v3.8-release-tag-planning.md`
+- `docs/v4.0-readiness-gap-audit.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, and v3.6 documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, and v3.8 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
 dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
 
@@ -192,7 +194,7 @@ Closeout and release/tag planning are ready:
 - candidate title: `v3.7 - Trainer session and filter workflows`
 - closeout verdict: `V3_7_CLOSEOUT_READY`
 - release planning verdict: `V3_7_RELEASE_TAG_PLANNING_READY`
-- local tag creation, GitHub push, and tag push are not performed in the planning step
+- Public release was completed in the later v3.7 release bundle.
 
 Start with:
 
@@ -247,8 +249,8 @@ Current v3.8 implementation verification:
 - build: PASS
 - smoke: PASS, 7/7
 
-This is an in-progress implementation record only. v3.8 local tag creation,
-public upload, and public tag push have not been performed in this step.
+The implementation record preceded the release bundle. The public release
+section below records final v3.8 publication.
 
 The v3.8 closeout and release/tag planning step verifies the implementation
 bundle and records the candidate release plan:
@@ -260,8 +262,16 @@ bundle and records the candidate release plan:
 - candidate title: `v3.8 - v4 readiness gap closure`
 - verification: typecheck PASS, test PASS, build PASS, smoke PASS
 - test count: core 383, server 82, web 118; smoke 7/7
-- local tag creation, GitHub push, and tag push are not performed in the
-  planning step
+- Public release was completed in the later v3.8 release bundle.
+
+The v3.8 public release is complete:
+
+- original local tag target: `86a851805ecbbe49d0e824ef650fb82fced5c8f4`
+- public sanitized snapshot: `a57593fa07fcc6cc94898c50ddfdab5daa834aca`
+- public tag: `v3.8`
+- public tag target: `a57593fa07fcc6cc94898c50ddfdab5daa834aca`
+- latest referenced Actions run: `29257812623`, PASS
+- status text hotfix: main-only, tag unchanged
 
 Start with:
 
