@@ -12,7 +12,7 @@ documents are included to make the project auditable.
 - License: MIT
 - Current public Git tag: `v3.7`
 - Public `main` is the latest sanitized public source snapshot used for OSS review.
-- The `docs/v3.0-*` through `docs/v3.7-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- The `docs/v3.0-*` through `docs/v3.8-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
@@ -49,7 +49,7 @@ labeled, and missing exact results are not disguised as solved strategy.
 
 - Monorepo with shared core logic, Express server, and React/Vite web app.
 - Exact-key and canonical-key study helpers.
-- Korean-first Trainer UX with session progress, filter save/restore, local-only mistake review filters, and local summaries.
+- Korean-first Trainer UX with local session progress, filter save/restore, local-only mistake review filters, and local summaries.
 - Read-only dry-run artifact review surfaces from earlier local verification work.
 - Copied-DB rehearsal planning helpers and safety documentation.
 - Tests across core, server, and web workspaces.

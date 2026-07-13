@@ -1,5 +1,5 @@
 import type { SolutionListItem } from "./api.js";
-import type { StorageLike } from "./trainerHistory.js";
+import { TRAINER_MISTAKES_STORAGE_KEY, TRAINER_RECENT_STORAGE_KEY, type StorageLike } from "./trainerHistory.js";
 
 export interface TrainerProblemFilters {
   heroPosition: string;
@@ -22,6 +22,11 @@ export const defaultTrainerProblemFilters: TrainerProblemFilters = {
 };
 
 export const TRAINER_FILTERS_STORAGE_KEY = "ptl.trainer.filters.v1";
+export const TRAINER_LOCAL_STORAGE_KEYS = [
+  TRAINER_RECENT_STORAGE_KEY,
+  TRAINER_MISTAKES_STORAGE_KEY,
+  TRAINER_FILTERS_STORAGE_KEY
+] as const;
 
 const TRAINER_FILTERS_STORAGE_VERSION = 1;
 

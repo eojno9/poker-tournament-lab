@@ -40,14 +40,26 @@ export interface AddTrainerHistoryInput {
   spotSummary: TrainerProblemSpotSummary;
 }
 
-export const TRAINER_RECENT_STORAGE_KEY = "ptl.trainer.recentAttempts.v1";
+export const TRAINER_RECENT_STORAGE_KEY = "ptl.trainer.recent.v1";
+export const TRAINER_RECENT_LEGACY_STORAGE_KEY = "ptl.trainer.recentAttempts.v1";
 export const TRAINER_MISTAKES_STORAGE_KEY = "ptl.trainer.mistakes.v1";
 
 const TRAINER_RECENT_MAX = 30;
 const TRAINER_MISTAKES_MAX = 50;
 
 export function loadTrainerRecentHistory(storage: StorageLike | null = resolveStorage()): TrainerHistoryEntry[] {
-  return loadHistory(TRAINER_RECENT_STORAGE_KEY, TRAINER_RECENT_MAX, storage);
+  if (!storage) {
+    return [];
+  }
+  const current = loadHistory(TRAINER_RECENT_STORAGE_KEY, TRAINER_RECENT_MAX, storage);
+  if (current.length > 0 || storage.getItem(TRAINER_RECENT_STORAGE_KEY)) {
+    return current;
+  }
+  const legacy = loadHistory(TRAINER_RECENT_LEGACY_STORAGE_KEY, TRAINER_RECENT_MAX, storage);
+  if (legacy.length > 0) {
+    saveHistory(TRAINER_RECENT_STORAGE_KEY, legacy, storage);
+  }
+  return legacy;
 }
 
 export function loadTrainerMistakesHistory(storage: StorageLike | null = resolveStorage()): TrainerHistoryEntry[] {
@@ -148,14 +160,15 @@ export function clearTrainerRecentHistory(storage: StorageLike | null = resolveS
   if (!storage) {
     return;
   }
-  storage.setItem(TRAINER_RECENT_STORAGE_KEY, "[]");
+  safeResetHistory(TRAINER_RECENT_STORAGE_KEY, storage);
+  safeResetHistory(TRAINER_RECENT_LEGACY_STORAGE_KEY, storage);
 }
 
 export function clearTrainerMistakesHistory(storage: StorageLike | null = resolveStorage()): void {
   if (!storage) {
     return;
   }
-  storage.setItem(TRAINER_MISTAKES_STORAGE_KEY, "[]");
+  safeResetHistory(TRAINER_MISTAKES_STORAGE_KEY, storage);
 }
 
 function addHistoryEntry(

@@ -29,6 +29,19 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #ffbf47;
+  outline-offset: 2px;
+}
+
 .app-shell {
   width: min(1500px, calc(100vw - 32px));
   margin: 0 auto;
@@ -1422,6 +1435,7 @@ textarea.compact-textarea {
 .trainer-mistake-status-grid strong {
   color: #182536;
   font-size: 16px;
+  overflow-wrap: anywhere;
 }
 
 .trainer-actions {
@@ -1434,6 +1448,11 @@ textarea.compact-textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.trainer-actions button,
+.trainer-filter-tabs button {
+  min-height: 42px;
 }
 
 .trainer-filter-tabs .preset-action.active {
@@ -1449,6 +1468,13 @@ textarea.compact-textarea {
 .trainer-actions .primary-action.selected-answer {
   outline: 2px solid rgba(255, 255, 255, 0.85);
   box-shadow: inset 0 0 0 2px #15563f;
+}
+
+.trainer-actions .primary-action[aria-pressed="true"],
+.trainer-filter-tabs .preset-action[aria-pressed="true"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 
 .spin {
@@ -1522,6 +1548,37 @@ textarea.compact-textarea {
   .recent-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .trainer-card-heading {
+    flex-direction: column;
+  }
+
+  .trainer-local-session,
+  .trainer-summary-strip,
+  .trainer-mistake-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trainer-actions,
+  .trainer-filter-tabs,
+  .search-line {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trainer-actions button,
+  .trainer-filter-tabs button,
+  .search-line button {
+    justify-content: center;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .result-block code,
+  .recent-summary span,
+  .recent-summary strong {
+    overflow-wrap: anywhere;
   }
 
   .preset-actions {

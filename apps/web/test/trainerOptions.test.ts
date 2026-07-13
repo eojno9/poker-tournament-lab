@@ -3,6 +3,7 @@ import test from "node:test";
 import type { SolutionListItem } from "../src/api.js";
 import {
   TRAINER_FILTERS_STORAGE_KEY,
+  TRAINER_LOCAL_STORAGE_KEYS,
   buildTrainerSourceSolutions,
   clearTrainerFilterSettings,
   defaultTrainerProblemFilters,
@@ -14,7 +15,7 @@ import {
   resolveTrainerSolutionIndex,
   saveTrainerFilterSettings
 } from "../src/trainerOptions.js";
-import type { StorageLike } from "../src/trainerHistory.js";
+import { TRAINER_MISTAKES_STORAGE_KEY, TRAINER_RECENT_STORAGE_KEY, type StorageLike } from "../src/trainerHistory.js";
 
 class MemoryStorage implements StorageLike {
   private readonly map = new Map<string, string>();
@@ -181,6 +182,14 @@ test("saves and loads versioned local trainer filter settings", () => {
     handInput: "AKo",
     seedInput: "seed-1"
   });
+});
+
+test("exposes the current Trainer localStorage key registry", () => {
+  assert.deepEqual(TRAINER_LOCAL_STORAGE_KEYS, [
+    TRAINER_RECENT_STORAGE_KEY,
+    TRAINER_MISTAKES_STORAGE_KEY,
+    TRAINER_FILTERS_STORAGE_KEY
+  ]);
 });
 
 test("loads partial trainer filter settings with safe defaults", () => {

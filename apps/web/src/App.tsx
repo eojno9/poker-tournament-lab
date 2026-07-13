@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -151,7 +151,7 @@ import {
 type Tab = "analyze" | "browser" | "import" | "database" | "trainer" | "hrcArtifacts";
 type AnalyzeMode = "form" | "json";
 type PresetNoticeTone = "success" | "error";
-type TrainerSessionStatus = "not_started" | "in_progress" | "completed";
+type TrainerSessionStatus = "empty" | "not_started" | "in_progress" | "completed";
 type TrainerMistakeFilterMode = "all" | "unresolved" | "resolved" | "dismissed";
 
 interface PresetNotice {
@@ -1848,6 +1848,7 @@ function TrainerView() {
   const [sessionCorrectCount, setSessionCorrectCount] = useState(0);
   const [filterStorageNotice, setFilterStorageNotice] = useState("저장된 필터는 이 브라우저에만 보관됩니다.");
   const [mistakeFilterMode, setMistakeFilterMode] = useState<TrainerMistakeFilterMode>("unresolved");
+  const answerLockedRef = useRef(false);
 
   const trainerSourceSolutions = useMemo(() => buildTrainerSourceSolutions(solutions), [solutions]);
   const trainerCandidates = useMemo(() => filterTrainerSolutions(trainerSourceSolutions, filters), [trainerSourceSolutions, filters]);
@@ -1893,6 +1894,25 @@ function TrainerView() {
     }
     buildProblemFromCursor(cursor, trainerCandidates);
   }, [cursor, trainerCandidates, handInput, seedInput, loading]);
+
+  function resetTrainerSessionState(nextStartedAt = new Date().toISOString()) {
+    answerLockedRef.current = false;
+    setSessionStartedAt(nextStartedAt);
+    setSessionAttempts(0);
+    setSessionCorrectCount(0);
+    setGrade(null);
+    setSelectedAction(null);
+  }
+
+  function resetTrainerSessionForContextChange() {
+    setCursor(0);
+    resetTrainerSessionState();
+  }
+
+  function updateTrainerFilters(patch: Partial<TrainerProblemFilters>) {
+    setFilters((previous) => ({ ...previous, ...patch }));
+    resetTrainerSessionForContextChange();
+  }
 
   function buildProblemFromCursor(nextCursor: number, sourceRows = trainerCandidates) {
     if (sourceRows.length === 0) {
@@ -1947,9 +1967,10 @@ function TrainerView() {
   }
 
   function onAnswer(action: TrainerChoiceAction) {
-    if (!problem) {
+    if (!problem || grade || answerLockedRef.current) {
       return;
     }
+    answerLockedRef.current = true;
     setSelectedAction(action);
     const graded = gradeTrainerAnswer(problem, action);
     setGrade(graded);
@@ -1974,9 +1995,10 @@ function TrainerView() {
   }
 
   function onNextProblem() {
-    if (trainerCandidates.length === 0) {
+    if (trainerCandidates.length === 0 || !grade || sessionAttempts >= trainerCandidates.length) {
       return;
     }
+    answerLockedRef.current = false;
     setCursor((previous) => previous + 1);
   }
 
@@ -1991,11 +2013,7 @@ function TrainerView() {
   }
 
   function onResetTrainerSession() {
-    setSessionStartedAt(new Date().toISOString());
-    setSessionAttempts(0);
-    setSessionCorrectCount(0);
-    setGrade(null);
-    setSelectedAction(null);
+    resetTrainerSessionState();
   }
 
   function onRetryTrainerMistake(entry: TrainerHistoryEntry) {
@@ -2007,9 +2025,7 @@ function TrainerView() {
     });
     setHandInput(entry.hand);
     setSeedInput("");
-    setCursor(0);
-    setGrade(null);
-    setSelectedAction(null);
+    resetTrainerSessionForContextChange();
   }
 
   function onDismissTrainerMistake(id: string) {
@@ -2020,9 +2036,7 @@ function TrainerView() {
     setFilters(nextSettings.filters);
     setHandInput(nextSettings.handInput);
     setSeedInput(nextSettings.seedInput);
-    setCursor(0);
-    setGrade(null);
-    setSelectedAction(null);
+    resetTrainerSessionForContextChange();
   }
 
   function onSaveTrainerFilters() {
@@ -2076,9 +2090,17 @@ function TrainerView() {
   const sessionAccuracyPct = sessionAttempts > 0 ? Number(((sessionCorrectCount / sessionAttempts) * 100).toFixed(2)) : null;
   const sessionProblemIndex = trainerCandidates.length > 0 ? ((cursor % trainerCandidates.length) + trainerCandidates.length) % trainerCandidates.length + 1 : 0;
   const sessionStatus: TrainerSessionStatus =
-    sessionAttempts === 0 ? "not_started" : trainerCandidates.length > 0 && sessionAttempts >= trainerCandidates.length ? "completed" : "in_progress";
+    trainerCandidates.length === 0
+      ? "empty"
+      : sessionAttempts === 0
+        ? "not_started"
+        : sessionAttempts >= trainerCandidates.length
+          ? "completed"
+          : "in_progress";
   const sessionStatusLabel = formatTrainerSessionStatusLabel(sessionStatus);
   const sessionStatusHelp = formatTrainerSessionStatusHelp(sessionStatus);
+  const answerDisabled = !problem || Boolean(grade) || sessionStatus === "completed";
+  const nextDisabled = !grade || trainerCandidates.length === 0 || sessionStatus === "completed";
 
   return (
     <section className="workspace-grid">
@@ -2086,9 +2108,9 @@ function TrainerView() {
         <div className="panel-title">
           <GraduationCap size={18} />
           <h2>Trainer 학습</h2>
-          <button className="icon-button" onClick={() => void refreshProblems()} type="button" title="문제 새로고침">
-            <RefreshCw size={16} />
-          </button>
+            <button className="icon-button" onClick={() => void refreshProblems()} type="button" title="문제 새로고침" aria-label="Trainer 문제 새로고침">
+              <RefreshCw size={16} />
+            </button>
         </div>
 
         <div className="notice trainer-hero-note">
@@ -2107,7 +2129,8 @@ function TrainerView() {
               포지션
               <select
                 value={filters.heroPosition}
-                onChange={(event) => setFilters((previous) => ({ ...previous, heroPosition: event.target.value }))}
+                onChange={(event) => updateTrainerFilters({ heroPosition: event.target.value })}
+                aria-label="Trainer 포지션 필터"
                 data-testid="trainer-filter-hero-position"
               >
                 <option value="">전체</option>
@@ -2122,7 +2145,8 @@ function TrainerView() {
               테이블 인원
               <select
                 value={filters.tableSize}
-                onChange={(event) => setFilters((previous) => ({ ...previous, tableSize: event.target.value }))}
+                onChange={(event) => updateTrainerFilters({ tableSize: event.target.value })}
+                aria-label="Trainer 테이블 인원 필터"
                 data-testid="trainer-filter-table-size"
               >
                 <option value="">전체</option>
@@ -2137,7 +2161,8 @@ function TrainerView() {
               트리 유형
               <select
                 value={filters.treeConfig}
-                onChange={(event) => setFilters((previous) => ({ ...previous, treeConfig: event.target.value }))}
+                onChange={(event) => updateTrainerFilters({ treeConfig: event.target.value })}
+                aria-label="Trainer 트리 유형 필터"
                 data-testid="trainer-filter-tree-config"
               >
                 <option value="">전체</option>
@@ -2152,17 +2177,34 @@ function TrainerView() {
               로컬 소스 필터
               <input
                 value={filters.sourceFile}
-                onChange={(event) => setFilters((previous) => ({ ...previous, sourceFile: event.target.value }))}
+                onChange={(event) => updateTrainerFilters({ sourceFile: event.target.value })}
+                aria-label="Trainer 로컬 소스 필터"
                 data-testid="trainer-filter-source-file"
               />
             </label>
             <label>
               핸드 입력 (예: AKo, K8s, 22)
-              <input value={handInput} onChange={(event) => setHandInput(event.target.value)} data-testid="trainer-hand-input" />
+              <input
+                value={handInput}
+                onChange={(event) => {
+                  setHandInput(event.target.value);
+                  resetTrainerSessionForContextChange();
+                }}
+                aria-label="Trainer 핸드 입력"
+                data-testid="trainer-hand-input"
+              />
             </label>
             <label>
               시드
-              <input value={seedInput} onChange={(event) => setSeedInput(event.target.value)} data-testid="trainer-seed-input" />
+              <input
+                value={seedInput}
+                onChange={(event) => {
+                  setSeedInput(event.target.value);
+                  resetTrainerSessionForContextChange();
+                }}
+                aria-label="Trainer 시드 입력"
+                data-testid="trainer-seed-input"
+              />
             </label>
           </div>
           <div className="search-line">
@@ -2183,9 +2225,9 @@ function TrainerView() {
               세션 다시 시작
             </button>
           </div>
-          <p className="muted" data-testid="trainer-filter-storage-notice">{filterStorageNotice}</p>
-          <div className="trainer-local-session" data-testid="trainer-session-card">
-            <div data-testid="trainer-session-status">
+          <p className="muted" data-testid="trainer-filter-storage-notice" role="status" aria-live="polite">{filterStorageNotice}</p>
+          <div className="trainer-local-session" data-testid="trainer-session-card" aria-label="Trainer 로컬 세션 상태">
+            <div data-testid="trainer-session-status" role="status" aria-live="polite">
               <span>세션 상태</span>
               <strong>{sessionStatusLabel}</strong>
             </div>
@@ -2249,6 +2291,8 @@ function TrainerView() {
                 className={`primary-action ${selectedAction === "SHOVE" ? "selected-answer" : ""}`}
                 type="button"
                 onClick={() => onAnswer("SHOVE")}
+                disabled={answerDisabled}
+                aria-pressed={selectedAction === "SHOVE"}
                 data-testid="trainer-shove-button"
               >
                 올인(Shove)
@@ -2257,11 +2301,13 @@ function TrainerView() {
                 className={`primary-action ${selectedAction === "FOLD" ? "selected-answer" : ""}`}
                 type="button"
                 onClick={() => onAnswer("FOLD")}
+                disabled={answerDisabled}
+                aria-pressed={selectedAction === "FOLD"}
                 data-testid="trainer-fold-button"
               >
                 폴드(Fold)
               </button>
-              <button className="preset-action" type="button" onClick={onNextProblem} data-testid="trainer-next-button">
+              <button className="preset-action" type="button" onClick={onNextProblem} disabled={nextDisabled} data-testid="trainer-next-button">
                 다음 문제
               </button>
             </div>
@@ -2462,6 +2508,7 @@ function TrainerView() {
                 className={`preset-action ${mistakeFilterMode === mode ? "active" : ""}`}
                 type="button"
                 onClick={() => setMistakeFilterMode(mode)}
+                aria-pressed={mistakeFilterMode === mode}
                 data-testid={`trainer-mistake-filter-${mode}`}
               >
                 {formatTrainerMistakeFilterLabel(mode)} {mistakeFilterCounts[mode]}
@@ -2604,6 +2651,9 @@ function formatTrainerMistakeEmptyState(mode: TrainerMistakeFilterMode, totalCou
 }
 
 function formatTrainerSessionStatusLabel(status: TrainerSessionStatus): string {
+  if (status === "empty") {
+    return "문제 없음";
+  }
   if (status === "completed") {
     return "세션 완료";
   }
@@ -2614,6 +2664,9 @@ function formatTrainerSessionStatusLabel(status: TrainerSessionStatus): string {
 }
 
 function formatTrainerSessionStatusHelp(status: TrainerSessionStatus): string {
+  if (status === "empty") {
+    return "현재 필터에 맞는 문제가 없습니다. 필터를 초기화하거나 다른 조건을 선택해 주세요.";
+  }
   if (status === "completed") {
     return "이번 세션 목표 수만큼 풀었습니다. 새 세션을 시작해도 전체 로컬 기록은 유지됩니다.";
   }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { RESULT_SOURCES, type TrainerProblemSpotSummary } from "@poker-tournament-lab/core";
 import {
+  TRAINER_RECENT_LEGACY_STORAGE_KEY,
   TRAINER_MISTAKES_STORAGE_KEY,
   TRAINER_RECENT_STORAGE_KEY,
   addTrainerMistakeHistory,
@@ -185,10 +186,78 @@ test("returns safe fallback for corrupted localStorage payload", () => {
   assert.equal(storage.getItem(TRAINER_MISTAKES_STORAGE_KEY), "[]");
 });
 
+test("drops invalid trainer history shapes without breaking valid entries", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    TRAINER_RECENT_STORAGE_KEY,
+    JSON.stringify([
+      { id: "missing-required-fields" },
+      {
+        id: "valid-1",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        canonicalKey: "valid-key",
+        hand: "AQs",
+        selectedAction: "FOLD",
+        correctAction: "SHOVE",
+        isCorrect: false,
+        frequency: 0.2,
+        ev: null,
+        evLabel: "not provided",
+        source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+        spotSummary: summary
+      }
+    ])
+  );
+  storage.setItem(TRAINER_MISTAKES_STORAGE_KEY, JSON.stringify({ not: "an array" }));
+
+  const recent = loadTrainerRecentHistory(storage);
+
+  assert.equal(recent.length, 1);
+  assert.equal(recent[0]?.id, "valid-1");
+  assert.deepEqual(loadTrainerMistakesHistory(storage), []);
+  assert.equal(storage.getItem(TRAINER_MISTAKES_STORAGE_KEY), "[]");
+});
+
+test("migrates legacy recent history into the current Trainer recent key", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(
+    TRAINER_RECENT_LEGACY_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: "legacy-1",
+        createdAt: "2026-06-01T00:00:00.000Z",
+        canonicalKey: "legacy-key",
+        hand: "AQo",
+        selectedAction: "SHOVE",
+        correctAction: "SHOVE",
+        isCorrect: true,
+        frequency: 0.7,
+        ev: 0.1,
+        evLabel: "0.1",
+        source: RESULT_SOURCES.HRC_PRECOMPUTED_DB,
+        spotSummary: summary
+      }
+    ])
+  );
+
+  const loaded = loadTrainerRecentHistory(storage);
+
+  assert.equal(TRAINER_RECENT_STORAGE_KEY, "ptl.trainer.recent.v1");
+  assert.equal(loaded.length, 1);
+  assert.equal(loaded[0]?.id, "legacy-1");
+  assert.ok(storage.getItem(TRAINER_RECENT_STORAGE_KEY)?.includes("legacy-1"));
+});
+
 test("returns safe fallback when localStorage reset fails", () => {
   const storage = new ThrowingStorage();
   assert.deepEqual(loadTrainerRecentHistory(storage), []);
   assert.deepEqual(loadTrainerMistakesHistory(storage), []);
+});
+
+test("clear trainer history calls tolerate storage write failures", () => {
+  const storage = new ThrowingStorage();
+  assert.doesNotThrow(() => clearTrainerRecentHistory(storage));
+  assert.doesNotThrow(() => clearTrainerMistakesHistory(storage));
 });
 
 test("updates unresolved mistake retry count for repeated incorrect attempts", () => {

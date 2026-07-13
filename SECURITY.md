@@ -9,10 +9,7 @@ fixes are considered for the current public `main` branch.
 
 If GitHub private vulnerability reporting is enabled for this repository, use that channel.
 
-If no private advisory channel is configured, open a minimal public issue asking for a private
-security contact path. Do not include exploit details or sensitive material in the public issue.
-
-Maintainer contact placeholder: `eojno9` through GitHub.
+별도의 비공개 연락 경로가 필요한 경우, 취약점 세부 정보를 포함하지 않은 최소한의 공개 이슈로 연락 방법을 요청해 주세요.
 
 ## Do Not Disclose Publicly
 
