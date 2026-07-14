@@ -577,9 +577,9 @@ test.describe("v1.2 smoke", () => {
     await expect(tabs.getByRole("button", { name: "Import", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Database", exact: true })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "HRC Artifacts", exact: true })).toBeVisible();
-    await expect(page.getByLabel("remaining players")).toBeVisible();
-    await expect(page.getByLabel("hero position")).toBeVisible();
-    await expect(page.getByLabel("preset name")).toBeVisible();
+    await expect(page.getByLabel("남은 인원")).toBeVisible();
+    await expect(page.getByLabel("Hero 포지션")).toBeVisible();
+    await expect(page.getByLabel("프리셋 이름")).toBeVisible();
     await expect(page.getByTestId("recent-analyses-empty")).toBeVisible();
     await expect(page.getByTestId("preset-save-button")).toBeVisible();
     await expect(page.getByTestId("analyze-action-sizing-selector")).toBeVisible();
@@ -587,14 +587,14 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("analyze-action-sizing-selector")).toContainText("자동 분석하지 않습니다.");
     await expect(page.getByTestId("analyze-action-sizing-empty")).toBeVisible();
 
-    await page.getByLabel("hero position").selectOption("BTN");
+    await page.getByLabel("Hero 포지션").selectOption("BTN");
     await expect(page.getByTestId("analyze-action-sizing-candidate").first()).toBeVisible();
     await expect(page.getByTestId("analyze-action-sizing-warning")).toBeVisible();
     await page.getByTestId("analyze-action-sizing-candidate").first().click();
     await expect(page.getByTestId("analyze-action-sizing-selected")).toBeVisible();
     await expect(page.getByTestId("analyze-action-sizing-selected")).toContainText("선택된 action");
 
-    await page.getByLabel("preset name").fill("Smoke Preset");
+    await page.getByLabel("프리셋 이름").fill("Smoke Preset");
     await page.getByTestId("preset-save-button").click();
     await expect(page.getByTestId("analyze-preset-list")).toBeVisible();
     await expect(page.getByTestId("analyze-preset-list")).toContainText("Smoke Preset");
@@ -614,13 +614,13 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("browser-action-tree-badges")).toContainText("Available Actions");
     await expect(page.getByTestId("browser-action-tree-badges")).toContainText("Available Sizes");
     await expect(page.getByTestId("browser-action-tree-filters")).toBeVisible();
-    await expect(page.getByLabel("browser spot type filter")).toBeVisible();
-    await expect(page.getByLabel("browser spot type filter")).toContainText("RFI / Open Raise");
-    await expect(page.getByLabel("browser action node filter")).toBeVisible();
-    await expect(page.getByLabel("browser action node filter")).toContainText("Open raise");
-    await page.getByLabel("browser spot type filter").selectOption("RFI");
+    await expect(page.getByLabel("Browser Spot Type 필터")).toBeVisible();
+    await expect(page.getByLabel("Browser Spot Type 필터")).toContainText("RFI / Open Raise");
+    await expect(page.getByLabel("Browser Action Node 필터")).toBeVisible();
+    await expect(page.getByLabel("Browser Action Node 필터")).toContainText("Open raise");
+    await page.getByLabel("Browser Spot Type 필터").selectOption("RFI");
     await expect(page.getByTestId("browser-solution-candidate").first()).toContainText("Spot Type RFI / Open Raise");
-    await page.getByLabel("browser action node filter").selectOption("OPEN_RAISE");
+    await page.getByLabel("Browser Action Node 필터").selectOption("OPEN_RAISE");
     await expect(page.getByTestId("browser-solution-candidate").first()).toContainText("Tree Node Open raise");
     await expect(page.getByTestId("browser-node-candidate-summary")).toBeVisible();
     await expect(page.getByTestId("browser-node-candidate-summary")).toContainText("Candidate Solutions");
@@ -653,15 +653,15 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("browser-action-tree-summary")).toContainText("LIMP");
     await expect(page.getByTestId("browser-action-tree-summary")).toContainText("CALL");
     await expect(page.getByTestId("solution-browser-controls")).toBeVisible();
-    await expect(page.getByLabel("solution browser action kind filter")).toBeVisible();
-    await expect(page.getByLabel("solution browser action kind filter")).toContainText("CALL");
-    await expect(page.getByLabel("solution browser action kind filter")).toContainText("RAISE");
-    await expect(page.getByLabel("solution browser action kind filter")).toContainText("ALL_IN");
-    await expect(page.getByLabel("solution browser size label filter")).toBeVisible();
-    await expect(page.getByLabel("solution browser size label filter")).toContainText("2.2bb");
-    await expect(page.getByLabel("solution browser size label filter")).toContainText("all-in");
-    await expect(page.getByLabel("solution browser EV display mode")).toBeVisible();
-    await expect(page.getByLabel("solution browser EV display mode")).toContainText("ChipEV");
+    await expect(page.getByLabel("Solution Browser action kind 필터")).toBeVisible();
+    await expect(page.getByLabel("Solution Browser action kind 필터")).toContainText("CALL");
+    await expect(page.getByLabel("Solution Browser action kind 필터")).toContainText("RAISE");
+    await expect(page.getByLabel("Solution Browser action kind 필터")).toContainText("ALL_IN");
+    await expect(page.getByLabel("Solution Browser size label 필터")).toBeVisible();
+    await expect(page.getByLabel("Solution Browser size label 필터")).toContainText("2.2bb");
+    await expect(page.getByLabel("Solution Browser size label 필터")).toContainText("all-in");
+    await expect(page.getByLabel("Solution Browser EV 표시 방식")).toBeVisible();
+    await expect(page.getByLabel("Solution Browser EV 표시 방식")).toContainText("ChipEV");
     await expect(page.getByTestId("browser-action-size-filter-context")).toBeVisible();
     await expect(page.getByTestId("browser-action-size-filter-context")).toContainText("Action / Size Filter Context");
     await expect(page.getByTestId("browser-action-size-filter-context")).toContainText("Node available actions");
@@ -689,16 +689,16 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("browser-hand-detail")).toContainText("45%");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("ChipEV");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("ICM EV");
-    await page.getByLabel("solution browser EV display mode").selectOption("CHIP_EV");
+    await page.getByLabel("Solution Browser EV 표시 방식").selectOption("CHIP_EV");
     await expect(page.getByTestId("browser-matrix-hand-aa")).toContainText("ChipEV");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("ChipEV selected");
-    await page.getByLabel("solution browser action kind filter").selectOption("CALL");
-    await expect(page.getByLabel("solution browser action kind filter")).toHaveValue("CALL");
+    await page.getByLabel("Solution Browser action kind 필터").selectOption("CALL");
+    await expect(page.getByLabel("Solution Browser action kind 필터")).toHaveValue("CALL");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("KK");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("CALL");
     await expect(page.getByTestId("browser-matrix-hand-kk")).toContainText("CALL 100%");
-    await page.getByLabel("solution browser size label filter").selectOption("unknown/unspecified");
-    await expect(page.getByLabel("solution browser size label filter")).toHaveValue("unknown/unspecified");
+    await page.getByLabel("Solution Browser size label 필터").selectOption("unknown/unspecified");
+    await expect(page.getByLabel("Solution Browser size label 필터")).toHaveValue("unknown/unspecified");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("KK");
     await expect(page.getByTestId("browser-hand-detail")).toContainText("CALL");
     await page.getByTestId("browser-matrix-hand-kk").click();
@@ -806,7 +806,7 @@ test.describe("v1.2 smoke", () => {
 
     const dashboard = page.getByTestId("hrc-artifacts-view");
     await expect(dashboard).toBeVisible();
-    await expect(page.getByTestId("hrc-artifact-readonly-notice")).toContainText("Read-only dashboard only.");
+    await expect(page.getByTestId("hrc-artifact-readonly-notice")).toContainText("읽기 전용 대시보드입니다.");
     await expect(page.getByTestId("hrc-artifact-readonly-notice")).toContainText("GET /api/hrc-dry-run-artifacts");
     await expect(page.getByTestId("hrc-artifact-summary")).toContainText("reports");
     await expect(page.getByTestId("hrc-artifact-summary")).toContainText("comparisons");
@@ -819,7 +819,7 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("hrc-artifact-list")).toContainText("COMPARISON");
     await expect(page.getByTestId("hrc-artifact-invalid-items")).toContainText("MALFORMED_JSON");
 
-    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-report-smoke.json" }).getByRole("button", { name: "Details" }).click();
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-report-smoke.json" }).getByRole("button", { name: "상세" }).click();
     await expect(page.getByTestId("hrc-artifact-detail")).toBeVisible();
     await expect(page.getByTestId("hrc-artifact-detail")).toContainText("Adapter report summary");
     await expect(page.getByTestId("hrc-artifact-detail")).toContainText("Validator result");
@@ -828,12 +828,12 @@ test.describe("v1.2 smoke", () => {
     await expect(page.getByTestId("hrc-artifact-detail")).toContainText("productImportConnected");
     await expect(page.getByTestId("hrc-artifact-detail")).toContainText("dbWriteApplied");
 
-    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-missing-smoke.json" }).getByRole("button", { name: "Details" }).click();
-    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("Detail failed");
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-missing-smoke.json" }).getByRole("button", { name: "상세" }).click();
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("상세 조회에 실패했습니다");
     await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact file was not found");
 
-    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-invalid-detail-smoke.json" }).getByRole("button", { name: "Details" }).click();
-    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("Detail failed");
+    await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-invalid-detail-smoke.json" }).getByRole("button", { name: "상세" }).click();
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("상세 조회에 실패했습니다");
     await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact JSON is invalid");
 
     await expect(dashboard).not.toContainText("C:\\Users");
@@ -869,7 +869,7 @@ test.describe("v1.2 smoke", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "HRC Artifacts", exact: true }).click();
     await expect(page.getByTestId("hrc-artifact-empty-state")).toBeVisible();
-    await expect(page.getByTestId("hrc-artifact-empty-state")).toContainText("does not create folders or files");
+    await expect(page.getByTestId("hrc-artifact-empty-state")).toContainText("폴더나 파일을 만들지 않습니다");
 
     await page.route("**/api/hrc-dry-run-artifacts", async (route) => {
       await route.fulfill({
@@ -878,8 +878,8 @@ test.describe("v1.2 smoke", () => {
         body: JSON.stringify({ error: "mock list failure" })
       });
     });
-    await page.getByLabel("Refresh list").click();
-    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("HRC artifact list failed");
+    await page.getByLabel("목록 새로고침").click();
+    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("HRC artifact 목록 조회에 실패했습니다");
     await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("mock list failure");
   });
 
@@ -1023,9 +1023,9 @@ test.describe("v1.2 smoke", () => {
     await expect(evComparison).toContainText("새 계산이 아니라 기존 payload 표시입니다.");
     const rangePresetComparison = page.getByTestId("range-preset-comparison-block");
     await expect(rangePresetComparison).toBeVisible();
-    await expect(rangePresetComparison).toContainText("Range preset comparison");
+    await expect(rangePresetComparison).toContainText("Range preset 비교");
     await expect(rangePresetComparison).toContainText("입력/가정 비교");
-    await expect(rangePresetComparison).toContainText("presetName");
+    await expect(rangePresetComparison).toContainText("preset 이름");
     await expect(rangePresetComparison).toContainText("callRangePct");
     const sensitivity = page.getByTestId("sensitivity-summary-block");
     await expect(sensitivity).toBeVisible();
@@ -1077,12 +1077,15 @@ test.describe("v1.2 smoke", () => {
     });
 
     await page.goto("/");
+    await page.getByLabel("프리셋 이름").fill("Database Handoff Preset");
+    await page.getByTestId("preset-save-button").click();
+    await expect(page.getByTestId("analyze-preset-list")).toContainText("Database Handoff Preset");
     await page.getByRole("button", { name: /Database/i }).click();
 
-    await expect(page.getByLabel("db hero position filter")).toBeVisible();
-    await expect(page.getByLabel("db table size filter")).toBeVisible();
-    await expect(page.getByLabel("db tree config filter")).toBeVisible();
-    await expect(page.getByLabel("db canonical key search")).toBeVisible();
+    await expect(page.getByLabel("Database Hero 포지션 필터")).toBeVisible();
+    await expect(page.getByLabel("Database 테이블 인원 필터")).toBeVisible();
+    await expect(page.getByLabel("Database 트리 설정 필터")).toBeVisible();
+    await expect(page.getByLabel("Database canonical key 검색")).toBeVisible();
 
     await expect(page.getByText("db-smoke-canonical-key").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: /^Detail$/ })).toBeVisible();
@@ -1116,9 +1119,9 @@ test.describe("v1.2 smoke", () => {
     await expect(browserV2).toContainText("Action Frequency Matrix");
     await expect(browserV2).toContainText("read-only");
     await expect(browserV2).toContainText("v2 원본 actions[]");
-    await expect(page.getByLabel("browser v2 action kind filter")).toBeVisible();
-    await expect(page.getByLabel("browser v2 size filter")).toBeVisible();
-    await expect(page.getByLabel("browser v2 EV display mode")).toBeVisible();
+    await expect(page.getByLabel("Browser v2 action kind 필터")).toBeVisible();
+    await expect(page.getByLabel("Browser v2 size 필터")).toBeVisible();
+    await expect(page.getByLabel("Browser v2 EV 표시 방식")).toBeVisible();
     await expect(browserV2).toContainText("AA");
     await expect(browserV2).toContainText("RAISE 45%");
     await expect(browserV2).toContainText("ALL_IN 55%");
@@ -1129,16 +1132,21 @@ test.describe("v1.2 smoke", () => {
     await page.getByRole("button", { name: /Browser v2 hand KK/ }).click();
     await expect(browserV2HandDetail).toContainText("KK");
     await expect(browserV2HandDetail).toContainText("CALL");
-    await page.getByLabel("browser v2 EV display mode").selectOption("CHIP_EV");
+    await page.getByLabel("Browser v2 EV 표시 방식").selectOption("CHIP_EV");
     await expect(browserV2).toContainText("EV display mode");
-    await page.getByLabel("browser v2 action kind filter").selectOption("CALL");
+    await page.getByLabel("Browser v2 action kind 필터").selectOption("CALL");
     await expect(browserV2).toContainText("CALL 100%");
-    await page.getByLabel("browser v2 size filter").selectOption("unknown/unspecified");
+    await page.getByLabel("Browser v2 size 필터").selectOption("unknown/unspecified");
     await expect(browserV2).toContainText("사이즈 미지정");
 
     await page.getByTestId("db-fill-analyze-button").click();
     await expect(page.getByRole("heading", { name: "Analyze Spot" })).toBeVisible();
-    await expect(page.getByText("Database spot을 Analyze 폼에 채웠습니다")).toBeVisible();
+    await expect(page.getByText("Database에서 가져온 조건을 Analyze 폼에 채웠습니다")).toBeVisible();
+    await expect(page.getByTestId("analyze-handoff-context")).toContainText("Database에서 가져온 Analyze 조건입니다.");
+    await expect(page.getByTestId("analyze-handoff-context")).toContainText("자동 분석은 수행하지 않습니다.");
+    await page.getByTestId("analyze-handoff-reset-button").click();
+    await expect(page.getByText("전달 context 안내를 초기화했습니다")).toBeVisible();
+    await expect(page.getByTestId("analyze-preset-list")).toContainText("Database Handoff Preset");
   });
 
   test("renders report missing fallback state", async ({ page }) => {

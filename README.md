@@ -10,9 +10,10 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current public Git tag: `v3.8`
+- Current completed public Git tag: `v3.9`
+- v3.9 is the final workflow stabilization snapshot before v4.0 entry.
 - Public `main` is the latest sanitized public source snapshot used for OSS review.
-- The `docs/v3.0-*` through `docs/v3.8-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- The `docs/v3.0-*` through `docs/v3.9-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
@@ -49,6 +50,7 @@ labeled, and missing exact results are not disguised as solved strategy.
 
 - Monorepo with shared core logic, Express server, and React/Vite web app.
 - Exact-key and canonical-key study helpers.
+- Analyze and Database workflows for reviewing locally configured study spots and manually filling Analyze inputs from selected Database items.
 - Korean-first Trainer UX with local session progress, filter save/restore, local-only mistake review filters, and local summaries.
 - Read-only dry-run artifact review surfaces from earlier local verification work.
 - Copied-DB rehearsal planning helpers and safety documentation.

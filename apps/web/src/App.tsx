@@ -161,7 +161,17 @@ interface PresetNotice {
 
 interface AnalyzePrefillPayload {
   id: string;
-  spot: SpotInput;
+  spot: unknown;
+  context: AnalyzeHandoffContext;
+}
+
+interface AnalyzeHandoffContext {
+  origin: "database";
+  label: string;
+  canonicalKey: string;
+  heroPosition: string;
+  tableSize: number | null;
+  treeConfig: string;
 }
 
 interface DatabaseFilters {
@@ -229,10 +239,11 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>("analyze");
   const [analyzePrefill, setAnalyzePrefill] = useState<AnalyzePrefillPayload | null>(null);
 
-  function moveToAnalyzeWithSpot(spot: SpotInput) {
+  function moveToAnalyzeWithSpot(spot: unknown, context: AnalyzeHandoffContext) {
     setAnalyzePrefill({
       id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      spot
+      spot,
+      context
     });
     setActiveTab("analyze");
   }
@@ -271,7 +282,7 @@ export function App() {
       {activeTab === "trainer" && <TrainerView />}
       {activeTab === "import" && <ImportView />}
       {activeTab === "database" && (
-        <DatabaseView onGoImport={() => setActiveTab("import")} onFillAnalyze={(spot) => moveToAnalyzeWithSpot(spot)} />
+        <DatabaseView onGoImport={() => setActiveTab("import")} onFillAnalyze={(spot, context) => moveToAnalyzeWithSpot(spot, context)} />
       )}
       {activeTab === "hrcArtifacts" && <HrcArtifactsView />}
     </main>
@@ -447,9 +458,9 @@ function SolutionBrowserView() {
           {!loading && !error && catalog.length > 0 ? (
             <div className="browser-action-tree-filters" data-testid="browser-action-tree-filters">
               <label>
-                Spot Type filter
+                Spot Type 필터
                 <select
-                  aria-label="browser spot type filter"
+                  aria-label="Browser Spot Type 필터"
                   value={selectedSpotTypeFilter}
                   onChange={(event) => setSelectedSpotTypeFilter(event.target.value)}
                 >
@@ -461,9 +472,9 @@ function SolutionBrowserView() {
                 </select>
               </label>
               <label>
-                Action Node filter
+                Action Node 필터
                 <select
-                  aria-label="browser action node filter"
+                  aria-label="Browser Action Node 필터"
                   value={selectedActionNodeFilter}
                   onChange={(event) => setSelectedActionNodeFilter(event.target.value)}
                 >
@@ -495,7 +506,7 @@ function SolutionBrowserView() {
             </div>
           ) : null}
 
-          <div className="solution-browser-candidate-list" aria-label="browser solution candidates">
+          <div className="solution-browser-candidate-list" aria-label="Browser solution 후보">
             {browserCatalog.map((item) => (
               <button
                 className={`solution-browser-candidate ${item.row.id === selectedSolutionId ? "selected" : ""}`}
@@ -505,8 +516,8 @@ function SolutionBrowserView() {
                 type="button"
               >
                 <strong>{item.heroPosition || "Hero Position 제공되지 않음"}</strong>
-                <span>{item.tableSize ? `${item.tableSize} players` : "Table Size 제공되지 않음"}</span>
-                <span>Remaining {formatCount(countRemainingPlayers(item.row.spot))}</span>
+                <span>{item.tableSize ? `${item.tableSize}명` : "Table Size 제공되지 않음"}</span>
+                <span>남은 인원 {formatCount(countRemainingPlayers(item.row.spot))}</span>
                 <span>Hero stack {formatBb(item.heroStackBb)}</span>
                 <span>Action Node {formatBrowserActionPath(item.row.spot.actionPath)}</span>
                 <span>Spot Type {formatActionTreeSpotType(item.actionTree.spotType)}</span>
@@ -542,9 +553,9 @@ function SolutionBrowserView() {
               <SolutionBrowserActionTreeSummary selected={selected} />
               <div className="browser-v2-controls" data-testid="solution-browser-controls">
                 <label>
-                  Action kind filter
+                  Action kind 필터
                   <select
-                    aria-label="solution browser action kind filter"
+                    aria-label="Solution Browser action kind 필터"
                     disabled={!selectedBrowserModel}
                     value={selectedBrowserActionKind}
                     onChange={(event) => setSelectedBrowserActionKind(event.target.value)}
@@ -557,9 +568,9 @@ function SolutionBrowserView() {
                   </select>
                 </label>
                 <label>
-                  Size label filter
+                  Size label 필터
                   <select
-                    aria-label="solution browser size label filter"
+                    aria-label="Solution Browser size label 필터"
                     disabled={!selectedBrowserModel}
                     value={selectedBrowserSizeLabel}
                     onChange={(event) => setSelectedBrowserSizeLabel(event.target.value)}
@@ -572,9 +583,9 @@ function SolutionBrowserView() {
                   </select>
                 </label>
                 <label>
-                  EV display mode
+                  EV 표시 방식
                   <select
-                    aria-label="solution browser EV display mode"
+                    aria-label="Solution Browser EV 표시 방식"
                     value={selectedBrowserEvMode}
                     onChange={(event) => setSelectedBrowserEvMode(parseBrowserV2EvMode(event.target.value))}
                   >
@@ -859,7 +870,7 @@ function SolutionBrowserStrategyMatrix({
               <p>현재 size filter: {sizeLabelFilter === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(sizeLabelFilter)}</p>
             </div>
           ) : null}
-          <div className="solution-browser-strategy-matrix" aria-label="solution browser action frequency matrix">
+          <div className="solution-browser-strategy-matrix" aria-label="Solution Browser action frequency matrix">
             {HAND_KEYS.map((handKey) => {
               const hand = handMap.get(handKey) ?? null;
               const primary = hand ? getBrowserV2PrimaryAction(hand.actions) : null;
@@ -972,7 +983,7 @@ function SolutionBrowserHandDetail({
       {hand.actions.length === 0 ? (
         <p className="muted">selected hand에 actions가 제공되지 않음</p>
       ) : (
-        <div className="solution-browser-action-detail-list" aria-label="solution browser selected hand actions">
+        <div className="solution-browser-action-detail-list" aria-label="Solution Browser 선택 hand action 목록">
           {hand.actions.map((action, index) => (
             <div className="solution-browser-action-detail-card" data-testid="browser-hand-action-row" key={`${hand.hand.hand}-${action.action}-${index}`}>
               <strong>{action.actionLabel}</strong>
@@ -1016,7 +1027,7 @@ function SolutionBrowserMetadataPanel({
   const allWarnings = Array.from(new Set([...sourceWarnings, ...(model?.warnings ?? [])]));
 
   return (
-    <div className="solution-browser-metadata-panel" data-testid="browser-selected-metadata" aria-label="selected solution metadata">
+    <div className="solution-browser-metadata-panel" data-testid="browser-selected-metadata" aria-label="선택된 solution metadata">
       <div>
         <h3>Source / Metadata</h3>
         <p className="muted">선택한 solution의 DB source, schema, canonical key, import metadata를 read-only로 표시합니다.</p>
@@ -1068,7 +1079,7 @@ function SolutionBrowserMetadataPanel({
         <code>{actionPath}</code>
       </div>
 
-      <div className="browser-placeholder-list" aria-label="browser source metadata">
+      <div className="browser-placeholder-list" aria-label="Browser source metadata">
         <div className="browser-placeholder-row">
           <span>external id</span>
           <strong>{solution.externalId || "제공되지 않음"}</strong>
@@ -1120,6 +1131,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
   const [actionSizingLoading, setActionSizingLoading] = useState(false);
   const [actionSizingError, setActionSizingError] = useState<string | null>(null);
   const [selectedActionSizing, setSelectedActionSizing] = useState<ActionSizingOption | null>(null);
+  const [handoffContext, setHandoffContext] = useState<AnalyzeHandoffContext | null>(null);
 
   const formBuildResult = useMemo(() => buildAnalyzeRequestFromForm(formState), [formState]);
   const heroPositionOptions = positionsForTableSize(formState.tableSize);
@@ -1157,6 +1169,20 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     if (!prefill) {
       return;
     }
+    if (!isSpotInputCandidate(prefill.spot)) {
+      setMode("form");
+      setFormErrors([]);
+      setError(null);
+      setResult(null);
+      setSelectedActionSizing(null);
+      setHandoffContext(null);
+      setFormNotice({
+        tone: "error",
+        text: "Database에서 전달된 context를 사용할 수 없습니다. 샘플 입력 상태를 유지했으며 프리셋, 최근 분석, Trainer 기록은 삭제하지 않았습니다."
+      });
+      onConsumePrefill();
+      return;
+    }
     const transformed = analyzeFormStateFromSpot(prefill.spot);
     setFormState(transformed.formState);
     const built = buildAnalyzeRequestFromForm(transformed.formState);
@@ -1167,15 +1193,16 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     setFormErrors([]);
     setError(null);
     setResult(null);
+    setHandoffContext(prefill.context);
     if (transformed.warnings.length > 0) {
       setFormNotice({
         tone: "error",
-        text: `Database spot을 불러왔습니다. 일부 값을 확인해 주세요. (${transformed.warnings[0]})`
+        text: `Database에서 가져온 조건을 불러왔습니다. 일부 값을 확인해 주세요. (${transformed.warnings[0]})`
       });
     } else {
       setFormNotice({
         tone: "success",
-        text: "Database spot을 Analyze 폼에 채웠습니다. Analyze 실행은 직접 눌러주세요."
+        text: "Database에서 가져온 조건을 Analyze 폼에 채웠습니다. Analyze 실행은 직접 눌러주세요."
       });
     }
     onConsumePrefill();
@@ -1255,6 +1282,15 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
     setRecentNotice(null);
     setFormNotice(null);
     setSelectedActionSizing(null);
+    setHandoffContext(null);
+  }
+
+  function resetAnalyzeHandoffContext() {
+    setHandoffContext(null);
+    setFormNotice({
+      tone: "success",
+      text: "전달 context 안내를 초기화했습니다. 현재 폼 값, 프리셋, 최근 분석, Trainer 기록은 삭제하지 않았습니다."
+    });
   }
 
   function onSavePreset() {
@@ -1406,7 +1442,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
           <h2>Analyze Spot</h2>
         </div>
 
-        <div className="tabs" aria-label="analyze input mode">
+        <div className="tabs" aria-label="Analyze 입력 방식">
           <button className={mode === "form" ? "active" : ""} onClick={() => setMode("form")} type="button">
             폼 입력
           </button>
@@ -1424,6 +1460,27 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
           </button>
         </div>
 
+        {handoffContext ? (
+          <div className="notice success analyze-handoff-context" data-testid="analyze-handoff-context">
+            <div>
+              <strong>Database에서 가져온 Analyze 조건입니다.</strong>
+              <p>
+                전달 context: {handoffContext.label} · canonical key {shortCanonicalKey(handoffContext.canonicalKey)}
+              </p>
+              <p>
+                자동으로 채운 값은 폼에서 직접 수정할 수 있습니다. Analyze 실행은 사용자가 직접 눌러야 하며 자동 분석은 수행하지 않습니다.
+              </p>
+              <p>
+                context 안내 초기화는 전달 표시만 지우며 프리셋, 최근 분석, Trainer 기록은 삭제하지 않습니다.
+              </p>
+            </div>
+            <button className="preset-action" data-testid="analyze-handoff-reset-button" onClick={resetAnalyzeHandoffContext} type="button">
+              <RefreshCw size={14} />
+              전달 context 초기화
+            </button>
+          </div>
+        ) : null}
+
         {mode === "form" ? (
           <>
             <div className="editor-block">
@@ -1432,7 +1489,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 <label>
                   프리셋 이름
                   <input
-                    aria-label="preset name"
+                    aria-label="프리셋 이름"
                     placeholder="예: 6max BTN 18bb open shove"
                     value={presetName}
                     onChange={(event) => setPresetName(event.target.value)}
@@ -1543,17 +1600,17 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
 
             <div className="form-grid">
               <label>
-                Game type
+                게임 유형
                 <input value="NLHE MTT (고정)" readOnly />
               </label>
               <label>
-                Decision type
+                결정 유형
                 <input value="Shove/Fold decision (고정)" readOnly />
               </label>
               <label>
                 남은 인원 (2~10)
                 <input
-                  aria-label="remaining players"
+                  aria-label="남은 인원"
                   type="number"
                   min={2}
                   max={10}
@@ -1562,7 +1619,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 />
               </label>
               <label>
-                Hero seat
+                Hero 좌석
                 <input
                   type="number"
                   min={1}
@@ -1572,11 +1629,11 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 />
               </label>
               <label>
-                Hero position
+                Hero 포지션
                 <select
                   value={formState.heroPosition}
                   onChange={(event) => setHeroPosition(event.target.value)}
-                  aria-label="hero position"
+                  aria-label="Hero 포지션"
                 >
                   {heroPositionOptions.map((position) => (
                     <option key={position} value={position}>
@@ -1586,7 +1643,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 </select>
               </label>
               <label>
-                Tree config
+                트리 설정
                 <select value={formState.treeConfig} onChange={() => undefined}>
                   <option value="open_shove_only">open_shove_only</option>
                 </select>
@@ -1602,7 +1659,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 />
               </label>
               <label>
-                Small blind
+                Small blind (BB)
                 <input
                   type="number"
                   min={0}
@@ -1617,7 +1674,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 />
               </label>
               <label>
-                Big blind
+                Big blind (BB)
                 <input
                   type="number"
                   min={0}
@@ -1647,7 +1704,7 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
                 />
               </label>
               <label>
-                Fallback equity samples
+                Fallback equity 샘플 수
                 <input
                   type="number"
                   min={20}
@@ -1659,15 +1716,15 @@ function AnalyzeView({ prefill, onConsumePrefill }: { prefill: AnalyzePrefillPay
             </div>
 
             <div className="editor-block">
-              <h3>Players (stack BB / villain preset)</h3>
+              <h3>플레이어 (stack BB / villain preset)</h3>
               <p className="muted">stack BB는 0보다 큰 숫자로 입력하세요. Hero가 아닌 자리에서 range preset/call %를 조정할 수 있습니다.</p>
               <div className="player-table">
-                <span>Seat</span>
-                <span>Pos</span>
-                <span>Stack</span>
-                <span>In</span>
+                <span>좌석</span>
+                <span>포지션</span>
+                <span>스택</span>
+                <span>참여</span>
                 <span>Hero</span>
-                <span>Range</span>
+                <span>레인지</span>
                 {formState.players.slice(0, formState.tableSize).map((player) => (
                   <AnalyzePlayerRow key={player.seat} player={player} onChange={(patch) => updatePlayer(player.seat, patch)} />
                 ))}
@@ -2389,7 +2446,7 @@ function TrainerView() {
               </div>
 
               {trainerSummary.byHand.length > 0 ? (
-                <div className="range-table" role="table" aria-label="trainer by hand summary">
+                <div className="range-table" role="table" aria-label="Trainer 핸드별 요약">
                   <div className="range-row range-head" role="row">
                     <span>핸드</span>
                     <span>시도</span>
@@ -2695,12 +2752,17 @@ function AnalyzePlayerRow({
       <strong>{player.seat}</strong>
       <input value={player.position} onChange={(event) => onChange({ position: event.target.value })} />
       <input type="number" min={0.1} step={0.1} value={player.stackBb} onChange={(event) => onChange({ stackBb: Number(event.target.value) })} />
-      <input type="checkbox" checked={player.inHand} onChange={(event) => onChange({ inHand: event.target.checked })} aria-label="in hand" />
+      <input
+        type="checkbox"
+        checked={player.inHand}
+        onChange={(event) => onChange({ inHand: event.target.checked })}
+        aria-label={`Seat ${player.seat} 참여 여부`}
+      />
       <input
         type="radio"
         checked={player.isHero}
         onChange={() => onChange({ setHeroSeat: true })}
-        aria-label={`hero seat ${player.seat}`}
+        aria-label={`Seat ${player.seat} Hero 지정`}
         name="heroSeat"
       />
       <div className="range-controls">
@@ -2833,7 +2895,7 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
             <div className="result-block" data-testid="ev-comparison-block">
               <h3>ChipEV vs ICM EV (read-only)</h3>
               <p className="muted">새 계산이 아니라 기존 payload 표시입니다.</p>
-              <div className="range-table" role="table" aria-label="chipev vs icm comparison table">
+              <div className="range-table" role="table" aria-label="ChipEV와 ICM EV 비교 표">
                 <div className="range-row range-head ev-compare-row" role="row">
                   <span>metric</span>
                   <span>ChipEV</span>
@@ -2852,18 +2914,18 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
           )}
           {rangePresetComparison && (
             <div className="result-block" data-testid="range-preset-comparison-block">
-              <h3>Range preset comparison (read-only)</h3>
+              <h3>Range preset 비교 (read-only)</h3>
               <p className="muted">{rangePresetComparison.notes[0] ?? "range preset 비교 정보입니다."}</p>
               <div className="detail-grid">
                 <ResultDetailItem label="rows" value={String(rangePresetComparison.rowCount)} />
                 <ResultDetailItem label="source" value={rangePresetComparison.source} />
               </div>
               {fallbackRanges.length > 0 ? (
-                <div className="range-table" role="table" aria-label="fallback villain ranges">
+                <div className="range-table" role="table" aria-label="Fallback 상대 레인지 표">
                   <div className="range-row range-head" role="row">
                     <span>position</span>
-                    <span>presetName</span>
-                    <span>editedByUser</span>
+                    <span>preset 이름</span>
+                    <span>사용자 수정</span>
                     <span>callRangePct</span>
                     <span>rangeSource</span>
                   </div>
@@ -2904,7 +2966,7 @@ function ResultPanel({ result, loading }: { result: AnalyzeResult | null; loadin
                 <ResultDetailItem label="worst scenario" value={formatSensitivityScenario(sensitivitySummary.worstScenario)} />
               </div>
               {sensitivitySummary.rows.length > 0 ? (
-                <div className="range-table" role="table" aria-label="villain range sensitivity table" data-testid="sensitivity-summary-table">
+                <div className="range-table" role="table" aria-label="상대 레인지 민감도 표" data-testid="sensitivity-summary-table">
                   <div className="range-row range-head sensitivity-row" role="row">
                     <span>presetName</span>
                     <span>callRangePct</span>
@@ -3006,7 +3068,7 @@ function AnalyzeMultiActionDetailBlock({
             <ResultDetailItem label="strategy mode" value={view.strategyMode} />
           </div>
 
-          <div className="range-table" role="table" aria-label="analyze multi-action detail table">
+          <div className="range-table" role="table" aria-label="Analyze multi-action 상세 표">
             <div className="range-row range-head multi-action-row" role="row">
               <span>hand</span>
               <span>action</span>
@@ -3111,7 +3173,7 @@ function HrcArtifactsView() {
       setSelectedFileName(null);
       setDetailError(null);
     } catch (caught) {
-      setError(sanitizeHrcArtifactDisplayText(caught instanceof Error ? caught.message : "HRC artifact list failed."));
+      setError(sanitizeHrcArtifactDisplayText(caught instanceof Error ? caught.message : "HRC artifact 목록 조회에 실패했습니다."));
       setList(null);
     } finally {
       setLoading(false);
@@ -3126,7 +3188,7 @@ function HrcArtifactsView() {
     try {
       setDetail(await getHrcDryRunArtifactDetail(fileName));
     } catch (caught) {
-      setDetailError(sanitizeHrcArtifactDisplayText(caught instanceof Error ? caught.message : "HRC artifact detail failed."));
+      setDetailError(sanitizeHrcArtifactDisplayText(caught instanceof Error ? caught.message : "HRC artifact detail 조회에 실패했습니다."));
     } finally {
       setDetailLoading(false);
     }
@@ -3148,14 +3210,14 @@ function HrcArtifactsView() {
         <div className="panel-title">
           <BadgeCheck size={18} />
           <h2>HRC Dry-run Artifacts</h2>
-          <button className="icon-button" aria-label="Refresh list" title="Refresh list" type="button" onClick={() => void refreshList()} disabled={loading}>
+          <button className="icon-button" aria-label="목록 새로고침" title="목록 새로고침" type="button" onClick={() => void refreshList()} disabled={loading}>
             {loading ? <Loader2 className="spin" size={16} /> : <RefreshCw size={16} />}
           </button>
         </div>
         <div className="notice success" data-testid="hrc-artifact-readonly-notice">
-          <strong>Read-only dashboard only.</strong>
+          <strong>읽기 전용 대시보드입니다.</strong>
           <span>
-            This screen calls only GET /api/hrc-dry-run-artifacts endpoints and never writes the DB, runs batch scripts, reads raw zip files, or connects to product import routes.
+            이 화면은 GET /api/hrc-dry-run-artifacts endpoint만 호출하며 DB write, batch script 실행, raw zip 읽기, product import route 연결을 수행하지 않습니다.
           </span>
         </div>
         <div className="detail-grid hrc-artifact-summary-grid" data-testid="hrc-artifact-summary">
@@ -3179,22 +3241,22 @@ function HrcArtifactsView() {
         <div className="panel stack" data-testid="hrc-artifact-list-error">
           <div className="panel-title">
             <AlertTriangle size={18} />
-            <h2>List Error</h2>
+            <h2>목록 오류</h2>
           </div>
-          <p className="error-text">HRC artifact list failed: {error}</p>
+          <p className="error-text">HRC artifact 목록 조회에 실패했습니다: {error}</p>
         </div>
       ) : null}
 
       <div className="panel stack">
         <div className="panel-title">
           <Search size={18} />
-          <h2>Artifact List</h2>
+          <h2>Artifact 목록</h2>
         </div>
         <div className="hrc-artifact-filters" data-testid="hrc-artifact-filters">
           <label>
-            kind
+            종류
             <select
-              aria-label="hrc artifact kind filter"
+              aria-label="HRC artifact 종류 필터"
               value={filters.kind}
               onChange={(event) => setFilters((current) => ({ ...current, kind: event.target.value as HrcArtifactDashboardFilters["kind"] }))}
             >
@@ -3206,9 +3268,9 @@ function HrcArtifactsView() {
             </select>
           </label>
           <label>
-            status
+            상태
             <select
-              aria-label="hrc artifact status filter"
+              aria-label="HRC artifact 상태 필터"
               value={filters.status}
               onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
             >
@@ -3221,9 +3283,9 @@ function HrcArtifactsView() {
             </select>
           </label>
           <label>
-            privacy
+            privacy 상태
             <select
-              aria-label="hrc artifact privacy filter"
+              aria-label="HRC artifact privacy 필터"
               value={filters.privacySafe}
               onChange={(event) => setFilters((current) => ({ ...current, privacySafe: event.target.value as HrcArtifactDashboardFilters["privacySafe"] }))}
             >
@@ -3238,8 +3300,8 @@ function HrcArtifactsView() {
         {isEmpty ? (
           <div className="empty-result hrc-artifact-empty" data-testid="hrc-artifact-empty-state">
             <div>
-              <h3>No dry-run artifact reports found.</h3>
-              <p>This dashboard does not create folders or files. Only sanitized JSON produced by explicit CLI commands appears here.</p>
+              <h3>dry-run artifact report가 없습니다.</h3>
+              <p>이 대시보드는 폴더나 파일을 만들지 않습니다. 명시적으로 실행한 CLI가 만든 sanitized JSON만 여기에 표시됩니다.</p>
             </div>
           </div>
         ) : null}
@@ -3254,13 +3316,13 @@ function HrcArtifactsView() {
       <div className="panel stack" data-testid="hrc-artifact-detail-panel">
         <div className="panel-title">
           <SlidersHorizontal size={18} />
-          <h2>Artifact Detail</h2>
+          <h2>Artifact 상세</h2>
         </div>
         {!selectedFileName && !detail && !detailLoading && !detailError ? (
-          <p className="muted">Select Details on a sanitized artifact JSON row to inspect its safe summary.</p>
+          <p className="muted">sanitized artifact JSON 행에서 상세를 선택하면 안전한 요약을 확인할 수 있습니다.</p>
         ) : null}
-        {detailLoading ? <p className="muted">Loading safe detail...</p> : null}
-        {detailError ? <p className="error-text">Detail failed: {detailError}</p> : null}
+        {detailLoading ? <p className="muted">안전 요약을 불러오는 중...</p> : null}
+        {detailError ? <p className="error-text">상세 조회에 실패했습니다: {detailError}</p> : null}
         {detail ? <HrcArtifactDetail detail={detail} /> : null}
       </div>
     </section>
@@ -3309,7 +3371,7 @@ function HrcArtifactList({
           <span>{formatHrcArtifactDate(item.modifiedAt)}</span>
           <span>
             <button className="preset-action compact-action" type="button" onClick={() => onSelect(item.fileName)}>
-              Details
+              상세
             </button>
           </span>
         </div>
@@ -3858,7 +3920,7 @@ function CanonicalKeyDiffPanel({
             value={leftText}
             onChange={(event) => onChangeLeft(event.target.value)}
             spellCheck={false}
-            aria-label="canonical diff left json"
+            aria-label="canonical diff 왼쪽 JSON"
           />
         </label>
         <label>
@@ -3868,7 +3930,7 @@ function CanonicalKeyDiffPanel({
             value={rightText}
             onChange={(event) => onChangeRight(event.target.value)}
             spellCheck={false}
-            aria-label="canonical diff right json"
+            aria-label="canonical diff 오른쪽 JSON"
           />
         </label>
       </div>
@@ -4057,7 +4119,13 @@ function VerificationDetailSection({ summary }: { summary: VerificationReportSum
   );
 }
 
-function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; onFillAnalyze: (spot: SpotInput) => void }) {
+function DatabaseView({
+  onGoImport,
+  onFillAnalyze
+}: {
+  onGoImport: () => void;
+  onFillAnalyze: (spot: unknown, context: AnalyzeHandoffContext) => void;
+}) {
   const [imports, setImports] = useState<ImportResponse["import"][]>([]);
   const [solutions, setSolutions] = useState<SolutionListItem[]>([]);
   const [filters, setFilters] = useState<DatabaseFilters>(defaultDatabaseFilters);
@@ -4126,7 +4194,7 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
         <div className="panel-title">
           <Database size={18} />
           <h2>Solutions</h2>
-          <button className="icon-button" onClick={refresh} type="button" title="새로고침">
+          <button className="icon-button" onClick={refresh} type="button" title="새로고침" aria-label="Database 목록 새로고침">
             <RefreshCw size={16} />
           </button>
         </div>
@@ -4146,11 +4214,11 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
 
         <div className="form-grid">
           <label>
-            Hero position
+            Hero 포지션
             <select
               value={filters.heroPosition}
               onChange={(event) => setFilters((prev) => ({ ...prev, heroPosition: event.target.value }))}
-              aria-label="db hero position filter"
+              aria-label="Database Hero 포지션 필터"
             >
               <option value="">전체</option>
               {heroPositionOptions.map((value) => (
@@ -4161,11 +4229,11 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             </select>
           </label>
           <label>
-            Table size
+            테이블 인원
             <select
               value={filters.tableSize}
               onChange={(event) => setFilters((prev) => ({ ...prev, tableSize: event.target.value }))}
-              aria-label="db table size filter"
+              aria-label="Database 테이블 인원 필터"
             >
               <option value="">전체</option>
               {tableSizeOptions.map((value) => (
@@ -4176,11 +4244,11 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             </select>
           </label>
           <label>
-            Tree config
+            트리 설정
             <select
               value={filters.treeConfig}
               onChange={(event) => setFilters((prev) => ({ ...prev, treeConfig: event.target.value }))}
-              aria-label="db tree config filter"
+              aria-label="Database 트리 설정 필터"
             >
               <option value="">전체</option>
               {treeConfigOptions.map((value) => (
@@ -4191,7 +4259,7 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             </select>
           </label>
           <label>
-            Hero stack min (BB)
+            Hero stack 최소 (BB)
             <input
               type="number"
               step={0.1}
@@ -4200,7 +4268,7 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             />
           </label>
           <label>
-            Hero stack max (BB)
+            Hero stack 최대 (BB)
             <input
               type="number"
               step={0.1}
@@ -4209,7 +4277,7 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             />
           </label>
           <label>
-            Source file
+            Source file 검색
             <input value={filters.sourceFile} onChange={(event) => setFilters((prev) => ({ ...prev, sourceFile: event.target.value }))} />
           </label>
           <label>
@@ -4217,13 +4285,13 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
             <input
               value={filters.canonicalKey}
               onChange={(event) => setFilters((prev) => ({ ...prev, canonicalKey: event.target.value }))}
-              aria-label="db canonical key search"
+              aria-label="Database canonical key 검색"
             />
           </label>
         </div>
 
         <div className="search-line">
-          <button className="icon-button" onClick={resetFilters} type="button" title="필터 초기화">
+          <button className="icon-button" onClick={resetFilters} type="button" title="필터 초기화" aria-label="Database 필터 초기화">
             <RefreshCw size={16} />
           </button>
           <span className="muted">결과 {filteredCatalog.length} / {catalog.length}</span>
@@ -4282,7 +4350,7 @@ function DatabaseView({ onGoImport, onFillAnalyze }: { onGoImport: () => void; o
               <button
                 className="preset-action"
                 type="button"
-                onClick={() => onFillAnalyze(selected.row.spot)}
+                onClick={() => onFillAnalyze(selected.row.spot, buildDatabaseAnalyzeHandoffContext(selected))}
                 data-testid="db-fill-analyze-button"
               >
                 <Download size={14} />
@@ -4377,7 +4445,7 @@ function DatabaseActionSizingSummaryBlock({ row }: { row: SolutionListItem }) {
       {summary.candidates.length === 0 ? (
         <p className="muted">action/sizing 후보가 제공되지 않음</p>
       ) : (
-        <div className="range-table" role="table" aria-label="database action sizing candidates">
+        <div className="range-table" role="table" aria-label="Database action sizing 후보 표">
           <div className="range-row range-head action-sizing-row" role="row">
             <span>action</span>
             <span>sizeKind</span>
@@ -4443,7 +4511,7 @@ function DatabaseMultiActionPreviewBlock({ row }: { row: SolutionListItem }) {
             <ResultDetailItem label="strategy mode" value={view.strategyMode} />
           </div>
 
-          <div className="range-table" role="table" aria-label="database multi-action preview table">
+          <div className="range-table" role="table" aria-label="Database multi-action 미리보기 표">
             <div className="range-row range-head multi-action-row" role="row">
               <span>hand</span>
               <span>action</span>
@@ -4534,7 +4602,7 @@ function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
           <div className="browser-v2-controls" data-testid="db-browser-v2-controls">
             <label>
               Action kind filter
-              <select aria-label="browser v2 action kind filter" value={selectedActionKind} onChange={(event) => setSelectedActionKind(event.target.value)}>
+              <select aria-label="Browser v2 action kind 필터" value={selectedActionKind} onChange={(event) => setSelectedActionKind(event.target.value)}>
                 {actionKindOptions.map((option) => (
                   <option key={option} value={option}>
                     {option}
@@ -4544,7 +4612,7 @@ function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
             </label>
             <label>
               Size filter
-              <select aria-label="browser v2 size filter" value={selectedSizeLabel} onChange={(event) => setSelectedSizeLabel(event.target.value)}>
+              <select aria-label="Browser v2 size 필터" value={selectedSizeLabel} onChange={(event) => setSelectedSizeLabel(event.target.value)}>
                 {sizeLabelOptions.map((option) => (
                   <option key={option} value={option}>
                     {option === "ALL" ? "ALL" : formatBrowserV2SizeFilterLabel(option)}
@@ -4554,7 +4622,7 @@ function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
             </label>
             <label>
               EV display mode
-              <select aria-label="browser v2 EV display mode" value={selectedEvMode} onChange={(event) => setSelectedEvMode(parseBrowserV2EvMode(event.target.value))}>
+              <select aria-label="Browser v2 EV 표시 방식" value={selectedEvMode} onChange={(event) => setSelectedEvMode(parseBrowserV2EvMode(event.target.value))}>
                 <option value="EV">EV</option>
                 <option value="CHIP_EV">ChipEV</option>
                 <option value="ICM_EV">ICM EV</option>
@@ -4577,7 +4645,7 @@ function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
             <p className="muted">현재 action/size filter에 맞는 Browser v2 hand/action 데이터가 제공되지 않음</p>
           ) : (
             <>
-              <div className="browser-v2-matrix" aria-label="browser v2 action frequency matrix">
+              <div className="browser-v2-matrix" aria-label="Browser v2 action frequency matrix">
                 {previewHands.map((hand) => (
                   <button
                     aria-label={`Browser v2 hand ${hand.hand.hand}`}
@@ -4603,7 +4671,7 @@ function DatabaseBrowserV2Block({ row }: { row: SolutionListItem }) {
                       <ResultDetailItem label="primary frequency" value={formatActionFrequency(getBrowserV2PrimaryAction(detailHand.actions)?.frequency ?? null)} />
                       <ResultDetailItem label="selected EV mode" value={browserV2EvModeLabel(selectedEvMode)} />
                     </div>
-                    <div className="range-table" role="table" aria-label="browser v2 hand detail table">
+                    <div className="range-table" role="table" aria-label="Browser v2 hand 상세 표">
                       <div className="range-row range-head browser-v2-row" role="row">
                         <span>action</span>
                         <span>size</span>
@@ -4985,6 +5053,24 @@ function buildCatalogItem(solution: SolutionListItem): SolutionCatalogItem {
     canonicalKey: solution.canonicalKey,
     actionTree
   };
+}
+
+function buildDatabaseAnalyzeHandoffContext(item: SolutionCatalogItem): AnalyzeHandoffContext {
+  const tableLabel = item.tableSize === null ? "인원 미상" : `${item.tableSize}명`;
+  const heroLabel = item.heroPosition || "Hero 포지션 미상";
+  const treeLabel = item.treeConfig || "트리 설정 미상";
+  return {
+    origin: "database",
+    label: `${heroLabel} · ${tableLabel} · ${treeLabel}`,
+    canonicalKey: item.canonicalKey,
+    heroPosition: item.heroPosition,
+    tableSize: item.tableSize,
+    treeConfig: item.treeConfig
+  };
+}
+
+function isSpotInputCandidate(value: unknown): value is SpotInput {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function countRemainingPlayers(spot: SpotInput): number | null {

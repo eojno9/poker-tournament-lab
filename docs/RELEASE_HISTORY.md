@@ -11,27 +11,27 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v3.8
+### v3.9
 
-`v3.8` is the current public Git tag.
+`v3.9` is the current public Git tag.
 
-v3.8 records v4.0 readiness gap closure for off-table Korean-first Trainer study.
-It keeps the v3.7 local-only Trainer session and filter flow and hardens state
-transitions, storage fallback, accessibility, keyboard behavior, narrow layout,
-public status wording, and public-safe security guidance. It does not add live
-assistance, production DB writes, product import routes, or bundled data
-artifacts to the public repository.
+v3.9 records final workflow stabilization before v4.0 entry. It keeps the
+Korean-first off-table study scope while tightening Analyze, Database, Trainer,
+artifact, and public-status wording. It does not add live assistance,
+production DB writes, product import routes, or bundled data artifacts to the
+public repository.
 
 Start with:
 
-- `docs/v3.8-plan.md`
-- `docs/v3.8-closeout.md`
-- `docs/v3.8-release-tag-planning.md`
-- `docs/v4.0-readiness-gap-audit.md`
+- `docs/v3.9-plan.md`
+- `docs/v3.9-scope-audit.md`
+- `docs/v3.9-design-bundle.md`
+- `docs/v3.9-closeout.md`
+- `docs/v4.0-entry-criteria.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, and v3.8 documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, v3.8, and v3.9 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
 dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
 
@@ -194,7 +194,7 @@ Closeout and release/tag planning are ready:
 - candidate title: `v3.7 - Trainer session and filter workflows`
 - closeout verdict: `V3_7_CLOSEOUT_READY`
 - release planning verdict: `V3_7_RELEASE_TAG_PLANNING_READY`
-- Public release was completed in the later v3.7 release bundle.
+- local tag creation, GitHub push, and tag push are not performed in the planning step
 
 Start with:
 
@@ -249,8 +249,8 @@ Current v3.8 implementation verification:
 - build: PASS
 - smoke: PASS, 7/7
 
-The implementation record preceded the release bundle. The public release
-section below records final v3.8 publication.
+This is an in-progress implementation record only. v3.8 local tag creation,
+public upload, and public tag push have not been performed in this step.
 
 The v3.8 closeout and release/tag planning step verifies the implementation
 bundle and records the candidate release plan:
@@ -262,24 +262,89 @@ bundle and records the candidate release plan:
 - candidate title: `v3.8 - v4 readiness gap closure`
 - verification: typecheck PASS, test PASS, build PASS, smoke PASS
 - test count: core 383, server 82, web 118; smoke 7/7
-- Public release was completed in the later v3.8 release bundle.
+- local tag creation, GitHub push, and tag push are not performed in the
+  planning step
 
 The v3.8 public release is complete:
 
 - original local tag target: `86a851805ecbbe49d0e824ef650fb82fced5c8f4`
 - public sanitized snapshot: `a57593fa07fcc6cc94898c50ddfdab5daa834aca`
+- public main after status hotfix: `50fff157c937fa6b8a9711edf1b94e27e1a2eff6`
 - public tag: `v3.8`
 - public tag target: `a57593fa07fcc6cc94898c50ddfdab5daa834aca`
-- latest referenced Actions run: `29257812623`, PASS
-- status text hotfix: main-only, tag unchanged
+- latest referenced Actions runs: `29257812623` and `29258154745`, PASS
+
+### v3.9 Planning
+
+v3.9 is the final stabilization planning bundle before v4.0. It audits
+remaining practical gaps and fixes the implementation scope around:
+
+- original README and RELEASE_HISTORY status synchronization
+- Korean-first copy and accessible names for older non-Trainer screens
+- Analyze, Database, and Trainer workflow clarity
+- empty/error/not-solved/storage fallback copy consistency
+- focused tests and smoke coverage for the above
+- CI warning triage if low-risk
+- v4.0 entry criteria
+
+The v3.9 scope audit and design step is docs-only and does not change code,
+package files, DB/raw/generated artifacts, GitHub refs, or tags.
 
 Start with:
 
-- `docs/v3.8-plan.md`
-- `docs/v3.8-design-bundle.md`
-- `docs/v4.0-readiness-gap-audit.md`
-- `docs/v3.8-closeout.md`
-- `docs/v3.8-release-tag-planning.md`
+- `docs/v3.9-scope-audit.md`
+- `docs/v3.9-plan.md`
+- `docs/v3.9-design-bundle.md`
+- `docs/v4.0-entry-criteria.md`
+
+The v3.9 implementation bundle stabilizes the core user workflows before v4.0:
+
+- README status distinguishes the completed public release from local
+  development-only work.
+- Analyze, Browser, Database, and artifact surfaces receive a Korean-first
+  accessible-name and state-copy pass where older English-only labels remained.
+- Database to Analyze handoff now shows the transferred context, clarifies that
+  the user can edit the filled values, and provides a context reset path that
+  does not delete presets, recent analyses, Trainer history, or other local
+  records.
+- Focused smoke coverage verifies Database to Analyze handoff, context reset,
+  unrelated local preset preservation, non-Trainer accessible names, HRC
+  artifact Korean copy, and existing Analyze/Trainer regressions.
+- localStorage key inventory is confirmed without version changes:
+  Analyze presets, recent analyses, Trainer recent attempts, Trainer mistakes,
+  and Trainer filters remain browser-local.
+- local verification: typecheck PASS, test PASS (core 383, server 82, web 118),
+  build PASS, smoke PASS (7/7).
+
+This implementation record was followed by closeout, local tag creation, and a
+sanitized public release bundle.
+
+The v3.9 closeout and release/tag planning step is also complete:
+
+- closeout verdict: `V3_9_CLOSEOUT_READY`
+- release planning verdict: `V3_9_RELEASE_TAG_PLANNING_READY`
+- v4.0 entry verdict: `V4_0_ENTRY_READY`
+- candidate tag: `v3.9`
+- candidate title: `v3.9 - Final workflow stabilization`
+- target commit policy: final HEAD produced by the v3.9 closeout docs-only
+  commit
+
+The v3.9 public release bundle is complete:
+
+- public tag: `v3.9`
+- public release title: `v3.9 - Final workflow stabilization`
+- public snapshot policy: sanitized source snapshot without bundled data
+  artifacts
+- v3.9 tag policy: the tag points to the public snapshot commit; later
+  status-only main updates must not move the tag
+
+Start with:
+
+- `docs/v3.9-plan.md`
+- `docs/v3.9-scope-audit.md`
+- `docs/v3.9-design-bundle.md`
+- `docs/v3.9-closeout.md`
+- `docs/v4.0-entry-criteria.md`
 
 ## Verification
 

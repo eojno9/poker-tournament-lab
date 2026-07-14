@@ -148,7 +148,7 @@ test("keeps dashboard actions read-only and documents only GET endpoints", () =>
     "GET /api/hrc-dry-run-artifacts",
     "GET /api/hrc-dry-run-artifacts/:fileName"
   ]);
-  assert.deepEqual(HRC_ARTIFACT_DASHBOARD_ACTION_LABELS, ["Refresh list", "Details"]);
+  assert.deepEqual(HRC_ARTIFACT_DASHBOARD_ACTION_LABELS, ["목록 새로고침", "상세"]);
   for (const label of HRC_ARTIFACT_DASHBOARD_ACTION_LABELS) {
     assert.equal(isForbiddenHrcArtifactActionLabel(label), false);
   }

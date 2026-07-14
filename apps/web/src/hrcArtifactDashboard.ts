@@ -31,7 +31,7 @@ export const HRC_ARTIFACT_ALLOWED_GET_ENDPOINTS = [
   "GET /api/hrc-dry-run-artifacts/:fileName"
 ] as const;
 
-export const HRC_ARTIFACT_DASHBOARD_ACTION_LABELS = ["Refresh list", "Details"] as const;
+export const HRC_ARTIFACT_DASHBOARD_ACTION_LABELS = ["목록 새로고침", "상세"] as const;
 
 export const HRC_ARTIFACT_FORBIDDEN_ACTION_TERMS = [
   "Import",
