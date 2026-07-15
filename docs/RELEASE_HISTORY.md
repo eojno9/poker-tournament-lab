@@ -11,29 +11,30 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v3.9
+### v4.0
 
-`v3.9` is the current public Git tag.
+`v4.0` is the current public Git tag.
 
-v3.9 records final workflow stabilization before v4.0 entry. It keeps the
-Korean-first off-table study scope while tightening Analyze, Database, Trainer,
-artifact, and public-status wording. It does not add live assistance,
+v4.0 is the stable public milestone for the current off-table study workflow.
+It keeps the Korean-first safety scope while confirming that Analyze, Database,
+Browser review, Trainer, local verification, public documentation, and
+sanitized release mechanics work together. It does not add live assistance,
 production DB writes, product import routes, or bundled data artifacts to the
 public repository.
 
 Start with:
 
-- `docs/v3.9-plan.md`
-- `docs/v3.9-scope-audit.md`
-- `docs/v3.9-design-bundle.md`
-- `docs/v3.9-closeout.md`
-- `docs/v4.0-entry-criteria.md`
+- `docs/v4.0-plan.md`
+- `docs/v4.0-closeout.md`
+- `docs/v4.0-release-tag-planning.md`
+- `docs/v4.0-release-acceptance-criteria.md`
+- `docs/v4.0-public-readiness-checklist.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, v3.8, and v3.9 documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, v3.8, v3.9, and v4.0 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
-dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
+dry-run package script verification, Trainer UX planning, final stabilization, and stable public milestone readiness.
 
 They should not be read as public release tags unless a matching Git tag exists.
 
@@ -299,8 +300,8 @@ Start with:
 
 The v3.9 implementation bundle stabilizes the core user workflows before v4.0:
 
-- README status distinguishes the completed public release from local
-  development-only work.
+- README status now distinguishes the completed `v3.8` public release from
+  local v3.9 development.
 - Analyze, Browser, Database, and artifact surfaces receive a Korean-first
   accessible-name and state-copy pass where older English-only labels remained.
 - Database to Analyze handoff now shows the transferred context, clarifies that
@@ -316,8 +317,9 @@ The v3.9 implementation bundle stabilizes the core user workflows before v4.0:
 - local verification: typecheck PASS, test PASS (core 383, server 82, web 118),
   build PASS, smoke PASS (7/7).
 
-This implementation record was followed by closeout, local tag creation, and a
-sanitized public release bundle.
+This is an implementation record only. `v3.9` local tag creation, public
+sanitized upload, GitHub main push, and tag push are not performed in this step.
+Closeout and release/tag planning remain separate follow-up work.
 
 The v3.9 closeout and release/tag planning step is also complete:
 
@@ -328,15 +330,17 @@ The v3.9 closeout and release/tag planning step is also complete:
 - candidate title: `v3.9 - Final workflow stabilization`
 - target commit policy: final HEAD produced by the v3.9 closeout docs-only
   commit
+- local tag creation, GitHub push, and tag push are not performed in the
+  closeout/planning step
 
-The v3.9 public release bundle is complete:
+The v3.9 public release is complete:
 
+- original local tag target: `10f2ed624296ad749c086929cfc552429d3fc23e`
+- public sanitized snapshot: `14b54cca626adad58b394fc320b238eb00b5a7b4`
+- public main: `14b54cca626adad58b394fc320b238eb00b5a7b4`
 - public tag: `v3.9`
-- public release title: `v3.9 - Final workflow stabilization`
-- public snapshot policy: sanitized source snapshot without bundled data
-  artifacts
-- v3.9 tag policy: the tag points to the public snapshot commit; later
-  status-only main updates must not move the tag
+- public tag target: `14b54cca626adad58b394fc320b238eb00b5a7b4`
+- latest referenced Actions run: `29321898100`, PASS
 
 Start with:
 
@@ -345,6 +349,82 @@ Start with:
 - `docs/v3.9-design-bundle.md`
 - `docs/v3.9-closeout.md`
 - `docs/v4.0-entry-criteria.md`
+
+### v4.0 Scope And Design
+
+v4.0 is planned as the stable public milestone for the current off-table study
+product. It is not a broad new feature line. The plan confirms that Analyze,
+Database, Trainer, verification, public docs, and sanitized release mechanics
+should be treated as one coherent public workflow.
+
+The v4.0 scope/design bundle is docs-only and does not change code, workflow,
+package files, DB/raw/generated artifacts, GitHub refs, or tags.
+
+The v4.0 scope/design bundle records:
+
+- scope verdict: `V4_0_SCOPE_CONFIRMED`
+- design verdict: `V4_0_DESIGN_BUNDLE_READY`
+- candidate tag: `v4.0`
+- candidate title: `v4.0 - Stable off-table study milestone`
+- Must items: public status sync, SECURITY copy repair, mojibake UI copy repair,
+  unified workflow verification, stable state model, local data contract, and
+  release acceptance criteria
+- Should items: GitHub Actions official-action deprecation cleanup if the
+  update is verified as low-risk, plus manual keyboard and narrow-screen QA
+  notes
+
+Start with:
+
+- `docs/v4.0-scope-confirmation.md`
+- `docs/v4.0-plan.md`
+- `docs/v4.0-design-bundle.md`
+- `docs/v4.0-state-model.md`
+- `docs/v4.0-local-data-contract.md`
+- `docs/v4.0-release-acceptance-criteria.md`
+- `docs/v4.0-public-readiness-checklist.md`
+
+The v4.0 implementation bundle establishes the stable workflow baseline:
+
+- README now records `v3.9` as the latest completed public tag and marks v4.0
+  as local implementation/release preparation only.
+- SECURITY.md reporting guidance is readable UTF-8 Korean and public-safe.
+- Trainer tree-config fallback copy is confirmed as `제공되지 않음`, with a
+  focused regression test.
+- Official GitHub Actions `actions/checkout` and `actions/setup-node` were
+  updated to stable `v7` tags after remote tag verification.
+- Node.js remains `24`, and no dependency or package-lock change is introduced.
+- Local data keys, versions, reset scopes, and fallback behavior remain aligned
+  with `docs/v4.0-local-data-contract.md`.
+- Local verification is complete: typecheck PASS, test PASS (core `383`, server
+  `82`, web `119`), build PASS, smoke PASS (`7/7`).
+- Implementation verdict: `V4_0_IMPLEMENTATION_BUNDLE_READY`.
+- v4.0 local tag creation, public upload, GitHub push, and tag push are not
+  performed in the implementation bundle.
+
+The v4.0 closeout and release/tag planning step is complete:
+
+- closeout verdict: `V4_0_CLOSEOUT_READY`
+- release planning verdict: `V4_0_RELEASE_TAG_PLANNING_READY`
+- Actions verdict: `ACTIONS_V7_VERIFIED`
+- release acceptance verdict: `V4_0_RELEASE_ACCEPTANCE_READY`
+- candidate tag: `v4.0`
+- candidate title: `v4.0 - Stable off-table study milestone`
+- target commit policy: final HEAD produced by the v4.0 closeout docs-only
+  commit
+- local verification: typecheck PASS, test PASS (core `383`, server `82`, web
+  `119`), build PASS, smoke PASS (`7/7`)
+- local tag creation, public upload, GitHub push, and tag push are not performed
+  in the closeout/planning step
+
+The v4.0 public release is complete:
+
+- public tag: `v4.0`
+- public release title: `v4.0 - Stable off-table study milestone`
+- public snapshot source: sanitized v4.0 source snapshot
+- public workflow: Analyze, Database, Browser review, Trainer, local
+  verification, public docs, and sanitized release mechanics
+- public Actions verification: expected on the pushed public snapshot
+- bundled data artifacts: not included
 
 ## Verification
 

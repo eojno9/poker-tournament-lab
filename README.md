@@ -10,10 +10,10 @@ documents are included to make the project auditable.
 
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
-- Current completed public Git tag: `v3.9`
-- v3.9 is the final workflow stabilization snapshot before v4.0 entry.
-- Public `main` is the latest sanitized public source snapshot used for OSS review.
-- The `docs/v3.0-*` through `docs/v3.9-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- Current completed public Git tag: `v4.0`
+- v4.0 is the stable public milestone for the current off-table study workflow.
+- Public `main` is the latest sanitized public source snapshot used for OSS review and local workflow verification.
+- The `docs/v3.0-*` through `docs/v4.0-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
@@ -114,9 +114,9 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 ## Release And Documentation Map
 
 - Release history summary: `docs/RELEASE_HISTORY.md`
-- Current planning record: `docs/v3.2-plan.md`
-- Public GitHub final verification: `docs/v3.2-public-github-final-verification.md`
-- Public release wrap-up: `docs/v3.2-release-wrap-up.md`
+- Current planning record: `docs/v4.0-plan.md`
+- v4.0 closeout: `docs/v4.0-closeout.md`
+- v4.0 release planning: `docs/v4.0-release-tag-planning.md`
 - v2.9 public tag documentation: `docs/v2.9-plan.md` and related `docs/v2.9-*` reports
 
 ## Known Limitations
@@ -125,7 +125,7 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 - Public refs do not include bundled data artifacts.
 - Non-README UTF-8 BOM occurrences are documented as a public-quality cleanup candidate.
 - The public repo has low social proof metrics; do not infer adoption from stars, forks, or downloads.
-- v3.x documents describe planning/readiness work unless a matching public tag is created.
+- Versioned documents describe planning/readiness work unless a matching public tag is created.
 
 ## Contributing And Security
 

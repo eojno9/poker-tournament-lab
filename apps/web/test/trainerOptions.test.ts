@@ -130,6 +130,21 @@ test("filterTrainerSolutions applies hero/table/tree/source filters", () => {
   assert.equal(filteredSource[0]?.fileName, "custom-rfi-pack.zip");
 });
 
+test("deriveTrainerTreeConfig uses Korean fallback copy without exposing raw state", () => {
+  const row = makeSolution(10, {
+    databaseFeatures: {
+      ...makeSolution(10).databaseFeatures,
+      spotFamily: ""
+    },
+    spot: {
+      ...makeSolution(10).spot,
+      actionPath: []
+    }
+  });
+
+  assert.equal(deriveTrainerTreeConfig(row), "제공되지 않음");
+});
+
 test("normalizeTrainerHandInput handles empty and trimmed values", () => {
   assert.equal(normalizeTrainerHandInput(""), undefined);
   assert.equal(normalizeTrainerHandInput("   "), undefined);
