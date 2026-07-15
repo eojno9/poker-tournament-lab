@@ -1,5 +1,6 @@
 import type { SolutionListItem } from "./api.js";
-import { TRAINER_MISTAKES_STORAGE_KEY, TRAINER_RECENT_STORAGE_KEY, type StorageLike } from "./trainerHistory.js";
+import { resolveStorage, safeReadStorage, safeWriteStorage, type StorageLike } from "./safeStorage.js";
+import { TRAINER_MISTAKES_STORAGE_KEY, TRAINER_RECENT_STORAGE_KEY } from "./trainerHistory.js";
 
 export interface TrainerProblemFilters {
   heroPosition: string;
@@ -109,12 +110,12 @@ export function loadTrainerFilterSettings(storage: StorageLike | null = resolveS
   if (!storage) {
     return cloneDefaultTrainerFilterSettings();
   }
-  const raw = storage.getItem(TRAINER_FILTERS_STORAGE_KEY);
-  if (!raw) {
+  const result = safeReadStorage(storage, TRAINER_FILTERS_STORAGE_KEY);
+  if (!result.ok || !result.value) {
     return cloneDefaultTrainerFilterSettings();
   }
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(result.value) as unknown;
     if (!parsed || typeof parsed !== "object") {
       safeResetTrainerFilterSettings(storage);
       return cloneDefaultTrainerFilterSettings();
@@ -131,21 +132,14 @@ export function loadTrainerFilterSettings(storage: StorageLike | null = resolveS
 }
 
 export function saveTrainerFilterSettings(settings: TrainerFilterSettings, storage: StorageLike | null = resolveStorage()): boolean {
-  if (!storage) {
-    return false;
-  }
-  try {
-    storage.setItem(
-      TRAINER_FILTERS_STORAGE_KEY,
-      JSON.stringify({
-        version: TRAINER_FILTERS_STORAGE_VERSION,
-        ...normalizeTrainerFilterSettings(settings)
-      })
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  return safeWriteStorage(
+    storage,
+    TRAINER_FILTERS_STORAGE_KEY,
+    JSON.stringify({
+      version: TRAINER_FILTERS_STORAGE_VERSION,
+      ...normalizeTrainerFilterSettings(settings)
+    })
+  );
 }
 
 export function clearTrainerFilterSettings(storage: StorageLike | null = resolveStorage()): boolean {
@@ -197,20 +191,12 @@ function normalizeOptionalText(value: unknown): string {
 }
 
 function safeResetTrainerFilterSettings(storage: StorageLike): void {
-  try {
-    storage.setItem(
-      TRAINER_FILTERS_STORAGE_KEY,
-      JSON.stringify({
-        version: TRAINER_FILTERS_STORAGE_VERSION,
-        ...cloneDefaultTrainerFilterSettings()
-      })
-    );
-  } catch {
-    // Keep Trainer initialization usable even when localStorage cannot be written.
-  }
-}
-
-function resolveStorage(): StorageLike | null {
-  const maybeStorage = (globalThis as { localStorage?: StorageLike }).localStorage;
-  return maybeStorage ?? null;
+  safeWriteStorage(
+    storage,
+    TRAINER_FILTERS_STORAGE_KEY,
+    JSON.stringify({
+      version: TRAINER_FILTERS_STORAGE_VERSION,
+      ...cloneDefaultTrainerFilterSettings()
+    })
+  );
 }

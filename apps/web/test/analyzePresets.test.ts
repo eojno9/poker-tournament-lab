@@ -23,6 +23,16 @@ class MemoryStorage implements StorageLike {
   }
 }
 
+class ThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    throw new Error("storage_read_failed");
+  }
+
+  setItem(): void {
+    throw new Error("storage_write_failed");
+  }
+}
+
 test("saves, applies, and deletes analyze presets", () => {
   const storage = new MemoryStorage();
   const formState = defaultAnalyzeFormState(defaultSpot);
@@ -70,4 +80,13 @@ test("returns safe fallback when localStorage payload is broken", () => {
   storage.setItem(ANALYZE_PRESETS_STORAGE_KEY, "{broken-json");
   assert.deepEqual(loadAnalyzePresets(storage), []);
   assert.equal(applyAnalyzePreset("missing-id", storage), null);
+});
+
+test("contains storage read failures and reports preset write failure safely", () => {
+  const storage = new ThrowingStorage();
+  assert.deepEqual(loadAnalyzePresets(storage), []);
+  assert.throws(
+    () => saveAnalyzePreset({ name: "safe preset", formState: defaultAnalyzeFormState(defaultSpot) }, storage),
+    /localStorage_unavailable/
+  );
 });

@@ -24,6 +24,16 @@ class MemoryStorage implements StorageLike {
   }
 }
 
+class ThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    throw new Error("storage_read_failed");
+  }
+
+  setItem(): void {
+    throw new Error("storage_write_failed");
+  }
+}
+
 test("stores and loads recent analyses in latest-first order", () => {
   const storage = new MemoryStorage();
   const formState = defaultAnalyzeFormState(defaultSpot);
@@ -160,4 +170,30 @@ test("returns safe fallback for corrupted localStorage", () => {
   const storage = new MemoryStorage();
   storage.setItem(RECENT_ANALYSES_STORAGE_KEY, "{broken");
   assert.deepEqual(loadRecentAnalyses(storage), []);
+});
+
+test("contains storage I/O failures without interrupting analysis", () => {
+  const storage = new ThrowingStorage();
+  const formState = defaultAnalyzeFormState(defaultSpot);
+
+  assert.deepEqual(loadRecentAnalyses(storage), []);
+  assert.doesNotThrow(() =>
+    addRecentAnalysis(
+      {
+        formState,
+        source: RESULT_SOURCES.NOT_SOLVED,
+        sourceLabel: "NOT_SOLVED",
+        summary: {
+          heroPosition: "BTN",
+          tableSize: 6,
+          heroStackBb: 18,
+          treeConfig: "open_shove_only",
+          resultSource: RESULT_SOURCES.NOT_SOLVED
+        },
+        metadata: {}
+      },
+      storage
+    )
+  );
+  assert.doesNotThrow(() => clearRecentAnalyses(storage));
 });

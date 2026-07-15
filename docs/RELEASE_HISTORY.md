@@ -11,30 +11,32 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v4.0
+### v4.1
 
-`v4.0` is the current public Git tag.
+`v4.1` is the current public Git tag.
 
-v4.0 is the stable public milestone for the current off-table study workflow.
-It keeps the Korean-first safety scope while confirming that Analyze, Database,
-Browser review, Trainer, local verification, public documentation, and
-sanitized release mechanics work together. It does not add live assistance,
-production DB writes, product import routes, or bundled data artifacts to the
-public repository.
+v4.1 is a maintenance-only update to the stable Korean-first off-table study
+workflow. It extracts the Trainer view from the main application component,
+centralizes failure-safe browser storage I/O without changing keys or versions,
+maps API failures to Korean-first public messages, and adds a read-only release
+preflight. It does not add live assistance, poker-client integration, bundled
+data artifacts, or server persistence.
+
+v4.0 remains the stable milestone that established the current product and
+safety baseline.
 
 Start with:
 
-- `docs/v4.0-plan.md`
-- `docs/v4.0-closeout.md`
-- `docs/v4.0-release-tag-planning.md`
-- `docs/v4.0-release-acceptance-criteria.md`
-- `docs/v4.0-public-readiness-checklist.md`
+- `docs/v4.1-plan.md`
+- `docs/v4.1-closeout.md`
+- `docs/v4.1-release-tag-planning.md`
+- `docs/v4.1-release-workflow-review.md`
 
 ## Later Planning And Verification Documents
 
-The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, v3.8, v3.9, and v4.0 documents for auditability. These documents describe
+The repository includes v3.0, v3.1, v3.2, v3.3, v3.4, v3.5, v3.6, v3.7, v3.8, and v3.9 documents for auditability. These documents describe
 foundation work, copied-DB rehearsal planning, public-snapshot cleanup, GitHub readiness, command safety planning,
-dry-run package script verification, Trainer UX planning, final stabilization, and stable public milestone readiness.
+dry-run package script verification, Trainer UX planning, and next-scope Trainer planning.
 
 They should not be read as public release tags unless a matching Git tag exists.
 
@@ -418,13 +420,57 @@ The v4.0 closeout and release/tag planning step is complete:
 
 The v4.0 public release is complete:
 
+- original local tag target: `6973439bc4bd5644f954d2ac4a0bfd1ec30ebb84`
+- public sanitized snapshot and tag target:
+  `a8f1edc2c4a3b288e5b9acd39cd6c527a7e32110`
+- public main after the release-status hotfix:
+  `7bd50aebb6133aa44f8cccc152df4a0b7d61950d`
 - public tag: `v4.0`
-- public release title: `v4.0 - Stable off-table study milestone`
-- public snapshot source: sanitized v4.0 source snapshot
-- public workflow: Analyze, Database, Browser review, Trainer, local
-  verification, public docs, and sanitized release mechanics
-- public Actions verification: PASS, run `29396390226`
-- bundled data artifacts: not included
+- public Actions run `29396539287`: PASS
+
+### v4.1 Maintenance Planning
+
+v4.1 is scoped as maintenance-only work after the stable v4.0 milestone. The
+scope audit identifies limited structural and reliability improvements without
+adding a new product capability:
+
+- incremental `App.tsx` decomposition beginning with Trainer
+- consistent failure-safe browser storage access without key/version changes
+- public-safe Korean-first API error mapping
+- read-only public release status preflight
+- smoke organization improvements without coverage reduction
+
+The planning bundle does not change code, workflow, package files, dependencies,
+DB/raw/generated artifacts, Git tags, remotes, or GitHub refs.
+
+The local v4.1 maintenance implementation and docs-only closeout are complete.
+The work incrementally extracts the Trainer view, centralizes failure-safe
+browser storage I/O without changing keys or versions, maps API failures to
+Korean-first public messages, and adds a read-only public release preflight.
+Typecheck, core `383`, server `82`, web `130`, build, smoke `7/7`, positive
+preflight, and ten negative fixtures pass.
+
+The v4.1 sanitized public snapshot includes the verified maintenance source,
+tests, read-only preflight scripts, and reviewed public documentation. The
+annotated public `v4.1` tag is assigned to the pure snapshot commit. GitHub
+Actions verification remains a required post-push gate and is not pre-recorded
+as successful in this snapshot.
+
+Verdicts:
+
+- scope: `V4_1_SCOPE_CONFIRMED`
+- design: `V4_1_DESIGN_BUNDLE_READY`
+- release workflow review: `V4_1_RELEASE_WORKFLOW_REVIEW_READY`
+
+Start with:
+
+- `docs/v4.1-scope-audit.md`
+- `docs/v4.1-plan.md`
+- `docs/v4.1-design-bundle.md`
+- `docs/v4.1-maintenance-roadmap.md`
+- `docs/v4.1-release-workflow-review.md`
+- `docs/v4.1-closeout.md`
+- `docs/v4.1-release-tag-planning.md`
 
 ## Verification
 

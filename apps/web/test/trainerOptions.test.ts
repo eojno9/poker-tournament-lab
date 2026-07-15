@@ -39,6 +39,14 @@ class ThrowingStorage implements StorageLike {
   }
 }
 
+class ReadThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    throw new Error("storage_read_failed");
+  }
+
+  setItem(): void {}
+}
+
 function makeSolution(
   id: number,
   overrides: Partial<SolutionListItem> = {}
@@ -272,6 +280,12 @@ test("filter clear and write failures keep trainer filters safe", () => {
   const throwingStorage = new ThrowingStorage();
   assert.equal(saveTrainerFilterSettings({ filters: defaultTrainerProblemFilters, handInput: "", seedInput: "" }, throwingStorage), false);
   assert.deepEqual(loadTrainerFilterSettings(throwingStorage), {
+    filters: defaultTrainerProblemFilters,
+    handInput: "",
+    seedInput: ""
+  });
+
+  assert.deepEqual(loadTrainerFilterSettings(new ReadThrowingStorage()), {
     filters: defaultTrainerProblemFilters,
     handInput: "",
     seedInput: ""

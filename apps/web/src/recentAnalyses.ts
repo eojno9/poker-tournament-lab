@@ -1,5 +1,8 @@
 import { RESULT_SOURCES, type AnalyzeResult, type ResultSource } from "@poker-tournament-lab/core";
 import type { AnalyzeFormState } from "./analyzeForm.js";
+import { resolveStorage, safeReadStorage, safeWriteStorage, type StorageLike } from "./safeStorage.js";
+
+export type { StorageLike } from "./safeStorage.js";
 
 export interface RecentAnalysisSummary {
   heroPosition: string;
@@ -25,24 +28,16 @@ export interface RecentAnalysisEntry {
   metadata: RecentAnalysisMetadata;
 }
 
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
 const RECENT_ANALYSES_MAX = 20;
 export const RECENT_ANALYSES_STORAGE_KEY = "poker-tournament-lab:recent-analyses:v1";
 
 export function loadRecentAnalyses(storage: StorageLike | null = resolveStorage()): RecentAnalysisEntry[] {
-  if (!storage) {
-    return [];
-  }
-  const raw = storage.getItem(RECENT_ANALYSES_STORAGE_KEY);
-  if (!raw) {
+  const result = safeReadStorage(storage, RECENT_ANALYSES_STORAGE_KEY);
+  if (!result.ok || !result.value) {
     return [];
   }
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(result.value) as unknown;
     if (!Array.isArray(parsed)) {
       return [];
     }
@@ -74,7 +69,7 @@ export function addRecentAnalysis(
 
   const existing = loadRecentAnalyses(storage);
   const next = [nextEntry, ...existing].slice(0, RECENT_ANALYSES_MAX);
-  storage.setItem(RECENT_ANALYSES_STORAGE_KEY, JSON.stringify(next));
+  safeWriteStorage(storage, RECENT_ANALYSES_STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
@@ -83,7 +78,7 @@ export function deleteRecentAnalysis(id: string, storage: StorageLike | null = r
     return [];
   }
   const next = loadRecentAnalyses(storage).filter((entry) => entry.id !== id);
-  storage.setItem(RECENT_ANALYSES_STORAGE_KEY, JSON.stringify(next));
+  safeWriteStorage(storage, RECENT_ANALYSES_STORAGE_KEY, JSON.stringify(next));
   return next;
 }
 
@@ -91,7 +86,7 @@ export function clearRecentAnalyses(storage: StorageLike | null = resolveStorage
   if (!storage) {
     return;
   }
-  storage.setItem(RECENT_ANALYSES_STORAGE_KEY, "[]");
+  safeWriteStorage(storage, RECENT_ANALYSES_STORAGE_KEY, "[]");
 }
 
 export function buildRecentAnalysisSummary(formState: AnalyzeFormState, result: AnalyzeResult): RecentAnalysisSummary {
@@ -178,11 +173,6 @@ function createEntryId(): string {
     return maybeCrypto.randomUUID();
   }
   return `recent-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-}
-
-function resolveStorage(): StorageLike | null {
-  const maybeStorage = (globalThis as { localStorage?: StorageLike }).localStorage;
-  return maybeStorage ?? null;
 }
 
 function sanitizeMetadata(metadata: RecentAnalysisMetadata): RecentAnalysisMetadata {

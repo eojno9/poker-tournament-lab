@@ -1,9 +1,7 @@
 import { RESULT_SOURCES, type HandAction, type ResultSource, type TrainerChoiceAction, type TrainerProblemSpotSummary } from "@poker-tournament-lab/core";
+import { resolveStorage, safeReadStorage, safeWriteStorage, type StorageLike } from "./safeStorage.js";
 
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
+export type { StorageLike } from "./safeStorage.js";
 
 export type TrainerMistakeStatus = "unresolved" | "resolved" | "dismissed";
 
@@ -51,8 +49,12 @@ export function loadTrainerRecentHistory(storage: StorageLike | null = resolveSt
   if (!storage) {
     return [];
   }
+  const currentRead = safeReadStorage(storage, TRAINER_RECENT_STORAGE_KEY);
+  if (!currentRead.ok) {
+    return [];
+  }
   const current = loadHistory(TRAINER_RECENT_STORAGE_KEY, TRAINER_RECENT_MAX, storage);
-  if (current.length > 0 || storage.getItem(TRAINER_RECENT_STORAGE_KEY)) {
+  if (current.length > 0 || currentRead.value) {
     return current;
   }
   const legacy = loadHistory(TRAINER_RECENT_LEGACY_STORAGE_KEY, TRAINER_RECENT_MAX, storage);
@@ -196,12 +198,12 @@ function loadHistory(key: string, maxCount: number, storage: StorageLike | null)
   if (!storage) {
     return [];
   }
-  const raw = storage.getItem(key);
-  if (!raw) {
+  const result = safeReadStorage(storage, key);
+  if (!result.ok || !result.value) {
     return [];
   }
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(result.value) as unknown;
     if (!Array.isArray(parsed)) {
       safeResetHistory(key, storage);
       return [];
@@ -299,19 +301,11 @@ function isSameMistakeSpot(left: TrainerHistoryEntry, right: TrainerHistoryEntry
 }
 
 function saveHistory(key: string, entries: TrainerHistoryEntry[], storage: StorageLike): void {
-  try {
-    storage.setItem(key, JSON.stringify(entries));
-  } catch {
-    // Keep the Trainer usable when localStorage is full or unavailable.
-  }
+  safeWriteStorage(storage, key, JSON.stringify(entries));
 }
 
 function safeResetHistory(key: string, storage: StorageLike): void {
-  try {
-    storage.setItem(key, "[]");
-  } catch {
-    // Ignore reset failures; callers already receive the safe empty fallback.
-  }
+  safeWriteStorage(storage, key, "[]");
 }
 
 function normalizeSpotSummary(value: unknown): TrainerProblemSpotSummary | null {
@@ -378,9 +372,4 @@ function createEntryId(): string {
     return maybeCrypto.randomUUID();
   }
   return `trainer-history-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-}
-
-function resolveStorage(): StorageLike | null {
-  const maybeStorage = (globalThis as { localStorage?: StorageLike }).localStorage;
-  return maybeStorage ?? null;
 }

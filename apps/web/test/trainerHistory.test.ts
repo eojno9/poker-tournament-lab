@@ -37,6 +37,14 @@ class ThrowingStorage implements StorageLike {
   }
 }
 
+class ReadThrowingStorage implements StorageLike {
+  getItem(): string | null {
+    throw new Error("storage_read_failed");
+  }
+
+  setItem(): void {}
+}
+
 const summary: TrainerProblemSpotSummary = {
   heroPosition: "BTN",
   tableSize: 6,
@@ -250,6 +258,12 @@ test("migrates legacy recent history into the current Trainer recent key", () =>
 
 test("returns safe fallback when localStorage reset fails", () => {
   const storage = new ThrowingStorage();
+  assert.deepEqual(loadTrainerRecentHistory(storage), []);
+  assert.deepEqual(loadTrainerMistakesHistory(storage), []);
+});
+
+test("returns safe fallback when trainer history reads fail", () => {
+  const storage = new ReadThrowingStorage();
   assert.deepEqual(loadTrainerRecentHistory(storage), []);
   assert.deepEqual(loadTrainerMistakesHistory(storage), []);
 });

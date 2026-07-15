@@ -507,7 +507,7 @@ const hrcArtifactDetailResponse = {
   }
 };
 
-test.describe("v1.2 smoke", () => {
+test.describe("public workflow smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/imports/validate", async (route) => {
       await route.fulfill({
@@ -830,11 +830,13 @@ test.describe("v1.2 smoke", () => {
 
     await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-missing-smoke.json" }).getByRole("button", { name: "상세" }).click();
     await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("상세 조회에 실패했습니다");
-    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact file was not found");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("요청한 정보를 찾지 못했습니다");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).not.toContainText("artifact file was not found");
 
     await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-invalid-detail-smoke.json" }).getByRole("button", { name: "상세" }).click();
     await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("상세 조회에 실패했습니다");
-    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("artifact JSON is invalid");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).toContainText("요청 내용을 확인해 주세요");
+    await expect(page.getByTestId("hrc-artifact-detail-panel")).not.toContainText("artifact JSON is invalid");
 
     await expect(dashboard).not.toContainText("C:\\Users");
     await expect(dashboard).not.toContainText("sample-user");
@@ -880,7 +882,8 @@ test.describe("v1.2 smoke", () => {
     });
     await page.getByLabel("목록 새로고침").click();
     await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("HRC artifact 목록 조회에 실패했습니다");
-    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("mock list failure");
+    await expect(page.getByTestId("hrc-artifact-list-error")).toContainText("서버에서 요청을 처리하지 못했습니다");
+    await expect(page.getByTestId("hrc-artifact-list-error")).not.toContainText("mock list failure");
   });
 
   test("renders trainer quiz loop from HRC solutions", async ({ page }) => {

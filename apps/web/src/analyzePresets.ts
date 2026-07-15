@@ -1,4 +1,7 @@
 import type { AnalyzeFormState } from "./analyzeForm.js";
+import { resolveStorage, safeReadStorage, safeWriteStorage, type StorageLike } from "./safeStorage.js";
+
+export type { StorageLike } from "./safeStorage.js";
 
 export interface AnalyzePreset {
   id: string;
@@ -14,11 +17,6 @@ export interface AnalyzePresetDraft {
   formState: AnalyzeFormState;
 }
 
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
 interface AnalyzePresetEnvelope {
   version: number;
   presets: AnalyzePreset[];
@@ -28,16 +26,13 @@ const ANALYZE_PRESETS_VERSION = 1;
 export const ANALYZE_PRESETS_STORAGE_KEY = "poker-tournament-lab:analyze-presets:v1";
 
 export function loadAnalyzePresets(storage: StorageLike | null = resolveStorage()): AnalyzePreset[] {
-  if (!storage) {
-    return [];
-  }
-  const raw = storage.getItem(ANALYZE_PRESETS_STORAGE_KEY);
-  if (!raw) {
+  const result = safeReadStorage(storage, ANALYZE_PRESETS_STORAGE_KEY);
+  if (!result.ok || !result.value) {
     return [];
   }
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(result.value) as unknown;
     const candidates = Array.isArray(parsed)
       ? parsed
       : parsed && typeof parsed === "object" && Array.isArray((parsed as AnalyzePresetEnvelope).presets)
@@ -96,7 +91,9 @@ function writePresets(storage: StorageLike, presets: AnalyzePreset[]): void {
     version: ANALYZE_PRESETS_VERSION,
     presets
   };
-  storage.setItem(ANALYZE_PRESETS_STORAGE_KEY, JSON.stringify(envelope));
+  if (!safeWriteStorage(storage, ANALYZE_PRESETS_STORAGE_KEY, JSON.stringify(envelope))) {
+    throw new Error("localStorage_unavailable");
+  }
 }
 
 function normalizePreset(candidate: unknown): AnalyzePreset | null {
@@ -148,9 +145,4 @@ function createPresetId(): string {
     return maybeCrypto.randomUUID();
   }
   return `preset-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
-}
-
-function resolveStorage(): StorageLike | null {
-  const maybeStorage = (globalThis as { localStorage?: StorageLike }).localStorage;
-  return maybeStorage ?? null;
 }

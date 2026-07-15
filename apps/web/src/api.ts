@@ -9,6 +9,7 @@ import type {
   SpotInput,
   StrategyMatrix
 } from "@poker-tournament-lab/core";
+import { ApiRequestError, createApiRequestError } from "./apiError.js";
 
 export interface ImportResponse {
   import: {
@@ -244,37 +245,23 @@ export async function importHrc(payload: HrcImportPayload): Promise<ImportRespon
 }
 
 export async function listImports(): Promise<ImportResponse["import"][]> {
-  const response = await fetch("/api/imports");
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  const json = (await response.json()) as { imports: ImportResponse["import"][] };
+  const json = await requestJson<{ imports: ImportResponse["import"][] }>("/api/imports");
   return json.imports;
 }
 
 export async function listSolutions(search = "", limit = 200): Promise<SolutionListItem[]> {
-  const response = await fetch(`/api/solutions?search=${encodeURIComponent(search)}&limit=${limit}`);
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  const json = (await response.json()) as { solutions: SolutionListItem[] };
+  const json = await requestJson<{ solutions: SolutionListItem[] }>(
+    `/api/solutions?search=${encodeURIComponent(search)}&limit=${limit}`
+  );
   return json.solutions;
 }
 
 export async function getLatestReportsSummary(): Promise<LatestReportsSummary> {
-  const response = await fetch("/api/reports/latest");
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return (await response.json()) as LatestReportsSummary;
+  return requestJson<LatestReportsSummary>("/api/reports/latest");
 }
 
 export async function getDbHealthSummary(): Promise<DbHealthSummary> {
-  const response = await fetch("/api/db/health");
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return (await response.json()) as DbHealthSummary;
+  return requestJson<DbHealthSummary>("/api/db/health");
 }
 
 export async function validateHrcImport(payload: Pick<HrcImportPayload, "format" | "content" | "fileName" | "sourceLabel">): Promise<ImportValidationSummary> {
@@ -286,32 +273,41 @@ export async function diffCanonicalKeys(payload: CanonicalKeyDiffRequest): Promi
 }
 
 export async function listHrcDryRunArtifacts(): Promise<HrcDryRunArtifactsListResponse> {
-  const response = await fetch("/api/hrc-dry-run-artifacts");
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return (await response.json()) as HrcDryRunArtifactsListResponse;
+  return requestJson<HrcDryRunArtifactsListResponse>("/api/hrc-dry-run-artifacts");
 }
 
 export async function getHrcDryRunArtifactDetail(fileName: string): Promise<HrcDryRunArtifactDetailResponse> {
-  const response = await fetch(`/api/hrc-dry-run-artifacts/${encodeURIComponent(fileName)}`);
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
-  return (await response.json()) as HrcDryRunArtifactDetailResponse;
+  return requestJson<HrcDryRunArtifactDetailResponse>(`/api/hrc-dry-run-artifacts/${encodeURIComponent(fileName)}`);
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
+  return requestJson<T>(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   });
+}
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text);
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await requestApi(url, init);
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiRequestError("invalid_response", response.status);
   }
+}
 
-  return (await response.json()) as T;
+async function requestApi(url: string, init?: RequestInit): Promise<Response> {
+  try {
+    const response = await fetch(url, init);
+    if (!response.ok) {
+      throw createApiRequestError(response.status);
+    }
+    return response;
+  } catch (error) {
+    if (error instanceof ApiRequestError) {
+      throw error;
+    }
+    throw new ApiRequestError("network");
+  }
 }
