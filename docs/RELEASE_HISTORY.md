@@ -423,7 +423,7 @@ The v4.0 public release is complete:
 - public snapshot source: sanitized v4.0 source snapshot
 - public workflow: Analyze, Database, Browser review, Trainer, local
   verification, public docs, and sanitized release mechanics
-- public Actions verification: expected on the pushed public snapshot
+- public Actions verification: PASS, run `29396390226`
 - bundled data artifacts: not included
 
 ## Verification
