@@ -11,22 +11,22 @@ documents are included so reviewers can audit the safety boundaries and release 
 
 ## Current Public Tag
 
-### v4.1
+### v4.2
 
-`v4.1` is the current public Git tag.
+`v4.2` is the current public Git tag.
 
-v4.1 is a maintenance-only update to the stable Korean-first off-table study
-workflow. It extracts the Trainer view, adds failure-safe local storage I/O,
-maps browser API errors to public-safe Korean-first messages, and provides a
-read-only public release preflight. The v4.0 product and safety baseline remains
-unchanged.
+v4.2 is a maintenance-only update to the stable Korean-first off-table study
+workflow. It extracts the read-only HRC artifact view, makes unhandled server
+errors generic and public-safe, adds explicit original/public release preflight
+modes, and verifies narrow-viewport behavior. The v4.0 product and safety
+baseline remains unchanged.
 
 Start with:
 
-- `docs/v4.1-plan.md`
-- `docs/v4.1-closeout.md`
-- `docs/v4.1-release-tag-planning.md`
-- `docs/v4.1-release-workflow-review.md`
+- `docs/v4.2-plan.md`
+- `docs/v4.2-closeout.md`
+- `docs/v4.2-release-tag-planning.md`
+- `docs/v4.2-release-preflight-review.md`
 
 ## Later Planning And Verification Documents
 
@@ -496,8 +496,8 @@ Planning verdicts:
 - test maintenance: `V4_2_TEST_MAINTENANCE_READY`
 - preflight review: `V4_2_RELEASE_PREFLIGHT_REVIEW_READY`
 
-No v4.2 implementation, local tag, public snapshot, GitHub push, or tag push is
-performed by this planning bundle.
+That planning bundle was docs-only and deferred implementation and release
+actions to the later v4.2 steps.
 
 The v4.2 maintenance implementation is now complete and locally verified:
 
@@ -513,9 +513,8 @@ The v4.2 maintenance implementation is now complete and locally verified:
 - local verification passes: core `383`, server `84`, web `131`, build, and
   smoke `7/7`
 
-This remains a local implementation record. v4.2 closeout, local tag creation,
-public sanitized upload, GitHub main push, and tag push have not been performed.
-The completed public tag remains `v4.1`.
+The implementation step was local-only; closeout and public release actions
+were intentionally deferred to the subsequent v4.2 bundles.
 
 The v4.2 closeout and release/tag planning bundle is complete:
 
@@ -530,9 +529,18 @@ The v4.2 closeout and release/tag planning bundle is complete:
 - candidate title: `v4.2 - Maintenance boundaries and release checks`
 - verification: core `383`, server `84`, web `131`, build PASS, smoke `7/7`
 
-This docs-only closeout does not create the local tag or perform a public
-snapshot, GitHub main push, or tag push. `v4.1` remains the current completed
-public tag until the separate release bundle succeeds.
+The docs-only closeout prepared the release candidate. The separate release
+bundle subsequently completed the sanitized public snapshot and tag workflow.
+
+The v4.2 public release is complete:
+
+- public snapshot and tag target: `30da6cb5b8c56369810cc9e8faf47cd23d6ed54b`
+- annotated public tag: `v4.2`
+- snapshot GitHub Actions run `29489181528`: success
+- Typecheck, test, build, and Playwright smoke jobs: PASS
+- release preflight: PASS in original/public modes with `28` fixture checks
+- public-safe blockers and tracked data artifacts: `0`
+- force push and bulk tag push: not used
 
 Start with:
 
