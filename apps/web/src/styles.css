@@ -138,6 +138,7 @@ h3 {
 
 .hrc-artifact-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
@@ -158,6 +159,9 @@ h3 {
 }
 
 .hrc-artifact-table {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
 }
 

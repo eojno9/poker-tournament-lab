@@ -369,11 +369,13 @@ describe("API source routing", () => {
     });
     const body = (await response.json()) as {
       error: string;
+      code: string;
       validation: { schemaVersion: string; issues: Array<{ code: string; field: string | null }> };
     };
 
     expect(response.status).toEqual(400);
     expect(body.error).toEqual("multi-action v2 validation failed");
+    expect(body.code).toEqual("INVALID_REQUEST");
     expect(body.validation.schemaVersion).toEqual("multi-action-v2");
     expect(body.validation.issues.some((issue) => issue.code === "MULTI_ACTION_V2_INVALID" && issue.field?.includes("frequency"))).toBe(true);
     expect(database.getHealthCounts().totalSolutions).toEqual(0);
@@ -415,6 +417,38 @@ describe("API source routing", () => {
     expect(result.differences.some((item) => item.field === "ante")).toBe(true);
     expect(result.differences.some((item) => item.field.startsWith("stacks."))).toBe(true);
     expect(result.explanation.length).toBeGreaterThan(0);
+  });
+
+  it("adds a stable code to explicit invalid-request responses", async () => {
+    const response = await fetch(`${baseUrl}/api/canonical-key/diff`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ left: spot })
+    });
+    const body = (await response.json()) as { error: string; code: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("left and right inputs are required");
+    expect(body.code).toBe("INVALID_REQUEST");
+  });
+
+  it("keeps unhandled exception details out of API responses", async () => {
+    const response = await fetch(`${baseUrl}/api/canonical-key/diff`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ left: "raw internal marker", right: spot })
+    });
+    const body = (await response.json()) as { error: string; code: string };
+    const serialized = JSON.stringify(body);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: "요청을 처리하지 못했습니다.",
+      code: "INTERNAL_SERVER_ERROR"
+    });
+    expect(serialized).not.toContain("left must be a spot object");
+    expect(serialized).not.toContain("raw internal marker");
+    expect(serialized).not.toContain("stack");
   });
 
   async function post<T = unknown>(path: string, body: unknown): Promise<T> {

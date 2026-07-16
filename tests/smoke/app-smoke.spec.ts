@@ -762,6 +762,7 @@ test.describe("public workflow smoke", () => {
   });
 
   test("renders read-only HRC artifact dashboard", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
     const apiRequests: Array<{ method: string; url: string }> = [];
     page.on("request", (request) => {
       if (request.url().includes("/api/")) {
@@ -790,14 +791,14 @@ test.describe("public workflow smoke", () => {
         await route.fulfill({
           status: 404,
           contentType: "application/json",
-          body: JSON.stringify({ error: "artifact file was not found" })
+          body: JSON.stringify({ error: "artifact file was not found", code: "NOT_FOUND" })
         });
         return;
       }
       await route.fulfill({
         status: 422,
         contentType: "application/json",
-        body: JSON.stringify({ error: "artifact JSON is invalid" })
+        body: JSON.stringify({ error: "artifact JSON is invalid", code: "INVALID_REQUEST" })
       });
     });
 
@@ -818,6 +819,12 @@ test.describe("public workflow smoke", () => {
     await expect(page.getByTestId("hrc-artifact-list")).toContainText("INDEX");
     await expect(page.getByTestId("hrc-artifact-list")).toContainText("COMPARISON");
     await expect(page.getByTestId("hrc-artifact-invalid-items")).toContainText("MALFORMED_JSON");
+    await expect(page.getByRole("button", { name: "목록 새로고침" })).toBeVisible();
+    await expect(page.getByTestId("hrc-artifact-filters")).toBeVisible();
+    await expect
+      .poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1))
+      .toBe(true);
+    expect(await page.getByTestId("hrc-artifact-list").evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
 
     await dashboard.getByTestId("hrc-artifact-row").filter({ hasText: "hrc-dry-run-report-smoke.json" }).getByRole("button", { name: "상세" }).click();
     await expect(page.getByTestId("hrc-artifact-detail")).toBeVisible();

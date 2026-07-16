@@ -31,6 +31,8 @@ interface AppOptions {
   hrcDryRunArtifactsDir?: string;
 }
 
+type SafeApiErrorCode = "INVALID_REQUEST" | "NOT_FOUND" | "UNAVAILABLE" | "INTERNAL_SERVER_ERROR";
+
 type ReportStatus = "available" | "missing" | "invalid";
 
 interface LatestReportEnvelope<TSummary> {
@@ -210,7 +212,14 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
     const result = readHrcDryRunArtifactDetail(fileName, {
       ...(options.hrcDryRunArtifactsDir ? { artifactsDir: options.hrcDryRunArtifactsDir } : {}),
     });
-    res.status(result.statusCode).json(result.body);
+    if (result.statusCode === 200) {
+      res.json(result.body);
+      return;
+    }
+    res.status(result.statusCode).json({
+      ...result.body,
+      code: result.statusCode === 404 ? "NOT_FOUND" : "INVALID_REQUEST"
+    });
   }) satisfies RequestHandler);
 
   app.get("/api/db/health", ((_req, res) => {
@@ -222,7 +231,7 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
   app.post("/api/canonical-key/diff", ((req, res) => {
     const payload = req.body as { left?: unknown; right?: unknown };
     if (!payload || payload.left === undefined || payload.right === undefined) {
-      res.status(400).json({ error: "left and right inputs are required" });
+      res.status(400).json({ error: "left and right inputs are required", code: "INVALID_REQUEST" });
       return;
     }
 
@@ -234,11 +243,11 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
   app.post("/api/imports/validate", ((req, res) => {
     const payload = req.body as Partial<HrcImportPayload>;
     if (payload.format !== "json" && payload.format !== "csv") {
-      res.status(400).json({ error: "format must be json or csv" });
+      res.status(400).json({ error: "format must be json or csv", code: "INVALID_REQUEST" });
       return;
     }
     if (typeof payload.content !== "string" || payload.content.trim().length === 0) {
-      res.status(400).json({ error: "content is required" });
+      res.status(400).json({ error: "content is required", code: "INVALID_REQUEST" });
       return;
     }
     const summary = validateImportPayload({
@@ -251,11 +260,11 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
   app.post("/api/imports/hrc", ((req, res) => {
     const payload = req.body as Partial<HrcImportPayload>;
     if (payload.format !== "json" && payload.format !== "csv") {
-      res.status(400).json({ error: "format must be json or csv" });
+      res.status(400).json({ error: "format must be json or csv", code: "INVALID_REQUEST" });
       return;
     }
     if (typeof payload.content !== "string" || payload.content.trim().length === 0) {
-      res.status(400).json({ error: "content is required" });
+      res.status(400).json({ error: "content is required", code: "INVALID_REQUEST" });
       return;
     }
 
@@ -265,6 +274,7 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
       if (v2Parsed.issues.length > 0) {
         res.status(400).json({
           error: "multi-action v2 validation failed",
+          code: "INVALID_REQUEST",
           validation: {
             schemaVersion: "multi-action-v2",
             issues: v2Parsed.issues,
@@ -336,7 +346,7 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
   app.post("/api/analyze", ((req, res) => {
     const request = req.body as AnalyzeRequest;
     if (!request || !request.spot) {
-      res.status(400).json({ error: "spot is required" });
+      res.status(400).json({ error: "spot is required", code: "INVALID_REQUEST" });
       return;
     }
 
@@ -367,9 +377,11 @@ export function createApp(database = new LabDatabase(), options: AppOptions = {}
     res.json(evaluateFallbackIcm(request));
   }) satisfies RequestHandler);
 
-  const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
-    const message = error instanceof Error ? error.message : "unknown server error";
-    res.status(400).json({ error: message });
+  const errorHandler: ErrorRequestHandler = (_error, _req, res, _next) => {
+    res.status(400).json({
+      error: "요청을 처리하지 못했습니다.",
+      code: "INTERNAL_SERVER_ERROR" satisfies SafeApiErrorCode
+    });
   };
   app.use(errorHandler);
 

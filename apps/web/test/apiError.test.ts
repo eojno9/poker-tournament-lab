@@ -15,6 +15,18 @@ test("provides safe network and not-solved messages", () => {
   assert.match(new ApiRequestError("not_solved").message, /해결된 결과/);
 });
 
+test("prefers stable server error codes and falls back to HTTP status", () => {
+  const coded = createApiRequestError(400, "INTERNAL_SERVER_ERROR");
+  assert.equal(coded.kind, "server");
+  assert.equal(coded.serverCode, "INTERNAL_SERVER_ERROR");
+  assert.match(coded.message, /서버/);
+
+  const unknown = createApiRequestError(404, "FUTURE_UNKNOWN_CODE");
+  assert.equal(unknown.kind, "not_found");
+  assert.equal(unknown.serverCode, null);
+  assert.match(unknown.message, /찾지 못했습니다/);
+});
+
 test("keeps raw response details out of user-facing errors", () => {
   const rawDetail = "<html>internal failure at /private/path</html>";
   const mapped = createApiRequestError(500);

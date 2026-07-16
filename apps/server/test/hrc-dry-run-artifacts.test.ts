@@ -165,10 +165,11 @@ describe("HRC dry-run artifacts read-only API", () => {
     writeFileSync(join(artifactsDir, "bad.json"), "{ bad", "utf8");
 
     const response = await fetch(`${baseUrl}/api/hrc-dry-run-artifacts/bad.json`);
-    const body = (await response.json()) as { error: string; fileName: string };
+    const body = (await response.json()) as { error: string; fileName: string; code: string };
 
     expect(response.status).toBe(422);
     expect(body.fileName).toBe("bad.json");
+    expect(body.code).toBe("INVALID_REQUEST");
     expect(body.error).toContain("artifact JSON could not be parsed");
   });
 
@@ -189,12 +190,13 @@ describe("HRC dry-run artifacts read-only API", () => {
 
   it("returns 404 for missing artifact detail", async () => {
     const response = await fetch(`${baseUrl}/api/hrc-dry-run-artifacts/missing.json`);
-    const body = (await response.json()) as { error: string; fileName: string };
+    const body = (await response.json()) as { error: string; fileName: string; code: string };
 
     expect(response.status).toBe(404);
     expect(body).toEqual({
       error: "artifact file was not found",
       fileName: "missing.json",
+      code: "NOT_FOUND",
     });
   });
 

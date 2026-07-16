@@ -11,10 +11,10 @@ documents are included to make the project auditable.
 - Public repository: <https://github.com/eojno9/poker-tournament-lab>
 - License: MIT
 - Current completed public Git tag: `v4.1`
-- v4.1 improves maintenance safety and structure through the extracted Trainer view, failure-safe local storage I/O, Korean-first API error mapping, and a read-only release preflight.
-- v4.0 remains the stable off-table study milestone that established the current product and safety baseline.
+- v4.1 improves maintenance safety through the extracted Trainer view, failure-safe local storage I/O, Korean-first API error mapping, and a read-only release preflight.
+- v4.2 maintenance implementation is in local verification and is not yet a public tag or release.
 - Public `main` is the latest sanitized public source snapshot used for OSS review.
-- The `docs/v3.0-*` through `docs/v4.1-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
+- The `docs/v3.0-*` through `docs/v4.2-*` files are planning, readiness, public-snapshot, and verification documents. They are not public release tags unless a matching Git tag exists.
 - Bundled data artifacts are not included. Users configure their own local data.
 
 ## What This Is
@@ -115,10 +115,10 @@ The smoke test starts a local Vite preview and runs Playwright against it.
 ## Release And Documentation Map
 
 - Release history summary: `docs/RELEASE_HISTORY.md`
-- Current planning record: `docs/v3.2-plan.md`
-- Public GitHub final verification: `docs/v3.2-public-github-final-verification.md`
-- Public release wrap-up: `docs/v3.2-release-wrap-up.md`
-- v2.9 public tag documentation: `docs/v2.9-plan.md` and related `docs/v2.9-*` reports
+- Current maintenance plan: `docs/v4.2-plan.md`
+- Current component boundary review: `docs/v4.2-component-boundary-review.md`
+- Latest completed maintenance closeout: `docs/v4.1-closeout.md`
+- Stable milestone checklist: `docs/v4.0-public-readiness-checklist.md`
 
 ## Known Limitations
 

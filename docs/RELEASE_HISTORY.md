@@ -16,14 +16,10 @@ documents are included so reviewers can audit the safety boundaries and release 
 `v4.1` is the current public Git tag.
 
 v4.1 is a maintenance-only update to the stable Korean-first off-table study
-workflow. It extracts the Trainer view from the main application component,
-centralizes failure-safe browser storage I/O without changing keys or versions,
-maps API failures to Korean-first public messages, and adds a read-only release
-preflight. It does not add live assistance, poker-client integration, bundled
-data artifacts, or server persistence.
-
-v4.0 remains the stable milestone that established the current product and
-safety baseline.
+workflow. It extracts the Trainer view, adds failure-safe local storage I/O,
+maps browser API errors to public-safe Korean-first messages, and provides a
+read-only public release preflight. The v4.0 product and safety baseline remains
+unchanged.
 
 Start with:
 
@@ -428,7 +424,7 @@ The v4.0 public release is complete:
 - public tag: `v4.0`
 - public Actions run `29396539287`: PASS
 
-### v4.1 Maintenance Planning
+### v4.1 Maintenance Release
 
 v4.1 is scoped as maintenance-only work after the stable v4.0 milestone. The
 scope audit identifies limited structural and reliability improvements without
@@ -450,11 +446,16 @@ Korean-first public messages, and adds a read-only public release preflight.
 Typecheck, core `383`, server `82`, web `130`, build, smoke `7/7`, positive
 preflight, and ten negative fixtures pass.
 
-The v4.1 sanitized public snapshot includes the verified maintenance source,
-tests, read-only preflight scripts, and reviewed public documentation. The
-annotated public `v4.1` tag is assigned to the pure snapshot commit. GitHub
-Actions verification remains a required post-push gate and is not pre-recorded
-as successful in this snapshot.
+The closeout step prepared candidate tag `v4.1` with title
+`v4.1 - Maintenance safety and structure` without performing release
+operations. The subsequent public release bundle completed the sanitized
+snapshot, named tag push, and external verification:
+
+- original tag target: `b684054846ae73b71c5a7f603034fb7cfcdb96ed`
+- public snapshot/main and tag target:
+  `b695fc83d0667b6abddde8e8636875f40526807b`
+- public Actions run `29428578638`: PASS
+- force push and bulk tag push: not used
 
 Verdicts:
 
@@ -471,6 +472,77 @@ Start with:
 - `docs/v4.1-release-workflow-review.md`
 - `docs/v4.1-closeout.md`
 - `docs/v4.1-release-tag-planning.md`
+
+### v4.2 Maintenance Scope Audit
+
+v4.2 is planned as a focused maintenance-only update after the completed v4.1
+public release. The audit confirms implementation value in four Must areas:
+
+- extract the low-coupling read-only HRC artifact view from `App.tsx`
+- make unhandled server errors generic and public-safe with an additive stable
+  error code
+- support explicit original/public modes in the read-only release preflight
+- synchronize durable public-status wording before future snapshots
+
+Smoke fixture cleanup, focused narrow-viewport checks, and pure Analyze handoff
+helpers are Should items. Full Analyze, Browser, Database, and Import
+decomposition remains v4.3+ work because broad movement is not justified by a
+current user-facing defect.
+
+Planning verdicts:
+
+- scope: `V4_2_SCOPE_CONFIRMED`
+- design: `V4_2_DESIGN_BUNDLE_READY`
+- test maintenance: `V4_2_TEST_MAINTENANCE_READY`
+- preflight review: `V4_2_RELEASE_PREFLIGHT_REVIEW_READY`
+
+No v4.2 implementation, local tag, public snapshot, GitHub push, or tag push is
+performed by this planning bundle.
+
+The v4.2 maintenance implementation is now complete and locally verified:
+
+- the GET-only HRC artifact screen is extracted from `App.tsx` into a focused
+  view while preserving selectors, copy, states, and read-only behavior
+- unhandled server exceptions use a fixed Korean response and additive stable
+  error code instead of raw exception detail
+- frontend API errors recognize allowlisted stable codes and retain safe HTTP
+  status fallbacks
+- release preflight supports explicit read-only original/public modes and JSON
+  stdout, with `28` positive, negative, and non-destructive checks
+- the HRC smoke path covers a 390 px viewport and table-local scrolling
+- local verification passes: core `383`, server `84`, web `131`, build, and
+  smoke `7/7`
+
+This remains a local implementation record. v4.2 closeout, local tag creation,
+public sanitized upload, GitHub main push, and tag push have not been performed.
+The completed public tag remains `v4.1`.
+
+The v4.2 closeout and release/tag planning bundle is complete:
+
+- HRC boundary verdict: `HRC_VIEW_BOUNDARY_PASS`
+- server error verdict: `SERVER_ERROR_SAFETY_PASS`
+- frontend mapping verdict: `FRONTEND_ERROR_MAPPING_PASS`
+- preflight verdict: `DUAL_MODE_PREFLIGHT_VERIFIED`
+- narrow viewport verdict: `NARROW_VIEWPORT_PASS`
+- closeout verdict: `V4_2_CLOSEOUT_READY`
+- release planning verdict: `V4_2_RELEASE_TAG_PLANNING_READY`
+- candidate tag: `v4.2`
+- candidate title: `v4.2 - Maintenance boundaries and release checks`
+- verification: core `383`, server `84`, web `131`, build PASS, smoke `7/7`
+
+This docs-only closeout does not create the local tag or perform a public
+snapshot, GitHub main push, or tag push. `v4.1` remains the current completed
+public tag until the separate release bundle succeeds.
+
+Start with:
+
+- `docs/v4.2-scope-audit.md`
+- `docs/v4.2-plan.md`
+- `docs/v4.2-design-bundle.md`
+- `docs/v4.2-component-boundary-review.md`
+- `docs/v4.2-test-maintenance-review.md`
+- `docs/v4.2-release-preflight-review.md`
+- `docs/v4.2-maintenance-roadmap.md`
 
 ## Verification
 

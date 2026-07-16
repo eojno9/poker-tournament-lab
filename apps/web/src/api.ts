@@ -9,7 +9,7 @@ import type {
   SpotInput,
   StrategyMatrix
 } from "@poker-tournament-lab/core";
-import { ApiRequestError, createApiRequestError } from "./apiError.js";
+import { ApiRequestError, createApiRequestError, isServerApiErrorCode, type ServerApiErrorCode } from "./apiError.js";
 
 export interface ImportResponse {
   import: {
@@ -301,7 +301,7 @@ async function requestApi(url: string, init?: RequestInit): Promise<Response> {
   try {
     const response = await fetch(url, init);
     if (!response.ok) {
-      throw createApiRequestError(response.status);
+      throw createApiRequestError(response.status, await readServerApiErrorCode(response));
     }
     return response;
   } catch (error) {
@@ -309,5 +309,14 @@ async function requestApi(url: string, init?: RequestInit): Promise<Response> {
       throw error;
     }
     throw new ApiRequestError("network");
+  }
+}
+
+async function readServerApiErrorCode(response: Response): Promise<ServerApiErrorCode | null> {
+  try {
+    const body = (await response.json()) as { code?: unknown };
+    return isServerApiErrorCode(body?.code) ? body.code : null;
+  } catch {
+    return null;
   }
 }

@@ -11,6 +11,21 @@ export type ApiErrorKind =
   | "invalid_response"
   | "unknown";
 
+export type ServerApiErrorCode =
+  | "INVALID_REQUEST"
+  | "NOT_FOUND"
+  | "NOT_SOLVED"
+  | "UNAVAILABLE"
+  | "INTERNAL_SERVER_ERROR";
+
+const SERVER_API_ERROR_CODES = new Set<ServerApiErrorCode>([
+  "INVALID_REQUEST",
+  "NOT_FOUND",
+  "NOT_SOLVED",
+  "UNAVAILABLE",
+  "INTERNAL_SERVER_ERROR"
+]);
+
 const API_ERROR_MESSAGES: Record<ApiErrorKind, string> = {
   invalid_request: "요청 내용을 확인해 주세요.",
   forbidden: "이 요청을 수행할 권한이 없습니다.",
@@ -28,21 +43,43 @@ const API_ERROR_MESSAGES: Record<ApiErrorKind, string> = {
 export class ApiRequestError extends Error {
   readonly kind: ApiErrorKind;
   readonly status: number | null;
+  readonly serverCode: ServerApiErrorCode | null;
 
-  constructor(kind: ApiErrorKind, status: number | null = null) {
+  constructor(kind: ApiErrorKind, status: number | null = null, serverCode: ServerApiErrorCode | null = null) {
     super(API_ERROR_MESSAGES[kind]);
     this.name = "ApiRequestError";
     this.kind = kind;
     this.status = status;
+    this.serverCode = serverCode;
   }
 }
 
-export function createApiRequestError(status: number): ApiRequestError {
-  return new ApiRequestError(apiErrorKindFromStatus(status), status);
+export function createApiRequestError(status: number, code: unknown = null): ApiRequestError {
+  const serverCode = isServerApiErrorCode(code) ? code : null;
+  return new ApiRequestError(serverCode ? apiErrorKindFromCode(serverCode) : apiErrorKindFromStatus(status), status, serverCode);
 }
 
 export function toUserFacingApiError(error: unknown, fallback = API_ERROR_MESSAGES.unknown): string {
   return error instanceof ApiRequestError ? error.message : fallback;
+}
+
+export function isServerApiErrorCode(value: unknown): value is ServerApiErrorCode {
+  return typeof value === "string" && SERVER_API_ERROR_CODES.has(value as ServerApiErrorCode);
+}
+
+function apiErrorKindFromCode(code: ServerApiErrorCode): ApiErrorKind {
+  switch (code) {
+    case "INVALID_REQUEST":
+      return "invalid_request";
+    case "NOT_FOUND":
+      return "not_found";
+    case "NOT_SOLVED":
+      return "not_solved";
+    case "UNAVAILABLE":
+      return "unavailable";
+    case "INTERNAL_SERVER_ERROR":
+      return "server";
+  }
 }
 
 function apiErrorKindFromStatus(status: number): ApiErrorKind {
